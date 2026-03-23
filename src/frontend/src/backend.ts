@@ -195,6 +195,29 @@ export interface Abilities {
 export interface UserProfile {
     name: string;
 }
+export type CustomSpellId = bigint;
+export type CustomItemId = bigint;
+export interface CustomSpell {
+    name: string;
+    level: bigint;
+    school: string;
+    castingTime: string;
+    range: string;
+    components: string;
+    duration: string;
+    damageEffect: string;
+    description: string;
+    owner: Principal;
+}
+export interface CustomItem {
+    name: string;
+    description: string;
+    weight: string;
+    value: string;
+    itemType: string;
+    rarity: string;
+    owner: Principal;
+}
 export enum UserRole {
     admin = "admin",
     user = "user",
@@ -207,6 +230,8 @@ export interface backendInterface {
     addRace(race: CustomRace): Promise<RaceId>;
     addSpell(spell: Spell): Promise<SpellId>;
     addTrait(trait: Trait): Promise<TraitId>;
+    addCustomSpell(spell: CustomSpell): Promise<CustomSpellId>;
+    addCustomItem(item: CustomItem): Promise<CustomItemId>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createCharacter(char: Character): Promise<CharacterId>;
     deleteCharacter(id: CharacterId): Promise<void>;
@@ -215,9 +240,13 @@ export interface backendInterface {
     deleteRace(id: RaceId): Promise<void>;
     deleteSpell(id: SpellId): Promise<void>;
     deleteTrait(id: TraitId): Promise<void>;
+    deleteCustomSpell(id: CustomSpellId): Promise<void>;
+    deleteCustomItem(id: CustomItemId): Promise<void>;
     getAllCharacters(): Promise<Array<[CharacterId, Character]>>;
     getAllClasses(): Promise<Array<[ClassId, CustomClass]>>;
     getAllRaces(): Promise<Array<[RaceId, CustomRace]>>;
+    getAllCustomSpells(): Promise<Array<[CustomSpellId, CustomSpell]>>;
+    getAllCustomItems(): Promise<Array<[CustomItemId, CustomItem]>>;
     getAllUserProfiles(): Promise<Array<[Principal, UserProfile]>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
@@ -236,6 +265,8 @@ export interface backendInterface {
     updateSettings(newSettings: Settings): Promise<void>;
     updateSpell(id: SpellId, spell: Spell): Promise<void>;
     updateTrait(id: TraitId, trait: Trait): Promise<void>;
+    updateCustomSpell(id: CustomSpellId, spell: CustomSpell): Promise<void>;
+    updateCustomItem(id: CustomItemId, item: CustomItem): Promise<void>;
 }
 import type { Character as _Character, UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -321,6 +352,34 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.addTrait(arg0);
+            return result;
+        }
+    }
+    async addCustomSpell(arg0: CustomSpell): Promise<CustomSpellId> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addCustomSpell(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addCustomSpell(arg0);
+            return result;
+        }
+    }
+    async addCustomItem(arg0: CustomItem): Promise<CustomItemId> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addCustomItem(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addCustomItem(arg0);
             return result;
         }
     }
@@ -436,6 +495,34 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async deleteCustomSpell(arg0: CustomSpellId): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteCustomSpell(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteCustomSpell(arg0);
+            return result;
+        }
+    }
+    async deleteCustomItem(arg0: CustomItemId): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteCustomItem(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteCustomItem(arg0);
+            return result;
+        }
+    }
     async getAllCharacters(): Promise<Array<[CharacterId, Character]>> {
         if (this.processError) {
             try {
@@ -475,6 +562,34 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.getAllRaces();
+            return result;
+        }
+    }
+    async getAllCustomSpells(): Promise<Array<[CustomSpellId, CustomSpell]>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllCustomSpells();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllCustomSpells();
+            return result;
+        }
+    }
+    async getAllCustomItems(): Promise<Array<[CustomItemId, CustomItem]>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllCustomItems();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllCustomItems();
             return result;
         }
     }
@@ -727,6 +842,34 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.updateTrait(arg0, arg1);
+            return result;
+        }
+    }
+    async updateCustomSpell(arg0: CustomSpellId, arg1: CustomSpell): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateCustomSpell(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateCustomSpell(arg0, arg1);
+            return result;
+        }
+    }
+    async updateCustomItem(arg0: CustomItemId, arg1: CustomItem): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateCustomItem(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateCustomItem(arg0, arg1);
             return result;
         }
     }

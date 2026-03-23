@@ -1,5 +1,6 @@
+import type { Principal } from "@icp-sdk/core/principal";
 import { useCallback, useEffect, useState } from "react";
-import type { Character, DndBackend, Spell } from "../../types";
+import type { Character, CustomSpell, DndBackend, Spell } from "../../types";
 
 interface Props {
   actor: DndBackend;
@@ -9,6 +10,7 @@ interface Props {
 }
 
 type SpellWithId = { id: bigint } & Spell;
+type CustomSpellWithId = { id: bigint } & CustomSpell;
 
 const SCHOOLS = [
   "Abjuration",
@@ -50,6 +52,13 @@ export default function SpellsTab({
     Array.from({ length: 10 }, (_, i) => Number(character.spellSlots[i] ?? 0)),
   );
 
+  // Library modal state
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [librarySpells, setLibrarySpells] = useState<CustomSpellWithId[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [addingFromLib, setAddingFromLib] = useState<bigint | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     const result = (await actor.getSpellsByCharacter(
@@ -62,6 +71,38 @@ export default function SpellsTab({
   useEffect(() => {
     load();
   }, [load]);
+
+  const openLibrary = async () => {
+    setShowLibrary(true);
+    setLibrarySearch("");
+    setLibraryLoading(true);
+    const result = (await actor.getAllCustomSpells()) as unknown as [
+      bigint,
+      CustomSpell,
+    ][];
+    setLibrarySpells(result.map(([id, s]) => ({ id, ...s })));
+    setLibraryLoading(false);
+  };
+
+  const addFromLibrary = async (libSpell: CustomSpellWithId) => {
+    setAddingFromLib(libSpell.id);
+    const spell: Spell = {
+      characterId,
+      name: libSpell.name,
+      level: libSpell.level,
+      school: libSpell.school,
+      castingTime: libSpell.castingTime,
+      range: libSpell.range,
+      components: libSpell.components,
+      duration: libSpell.duration,
+      description: libSpell.description,
+      damageEffect: libSpell.damageEffect,
+    };
+    await actor.addSpell(spell);
+    await load();
+    setAddingFromLib(null);
+    setShowLibrary(false);
+  };
 
   const openNew = () => {
     setEditing(null);
@@ -135,8 +176,15 @@ export default function SpellsTab({
       filterLevel === null ? g.spells.length > 0 : g.lvl === filterLevel,
     );
 
+  const filteredLibrary = librarySpells.filter(
+    (s) =>
+      s.name.toLowerCase().includes(librarySearch.toLowerCase()) ||
+      s.school.toLowerCase().includes(librarySearch.toLowerCase()),
+  );
+
   return (
     <div>
+      {/* Spell Slots */}
       <div className="ds-card" style={{ padding: 16, marginBottom: 16 }}>
         <div
           style={{
@@ -239,6 +287,7 @@ export default function SpellsTab({
         </div>
       </div>
 
+      {/* Toolbar */}
       <div
         style={{
           display: "flex",
@@ -286,16 +335,29 @@ export default function SpellsTab({
             </button>
           ))}
         </div>
-        <button
-          type="button"
-          className="ds-btn-primary"
-          onClick={openNew}
-          style={{ fontFamily: "Cinzel, serif", fontSize: 13 }}
-        >
-          + Add Spell
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            className="ds-btn-ghost"
+            onClick={openLibrary}
+            style={{ fontFamily: "Cinzel, serif", fontSize: 13 }}
+            data-ocid="spells.secondary_button"
+          >
+            📚 Library
+          </button>
+          <button
+            type="button"
+            className="ds-btn-primary"
+            onClick={openNew}
+            style={{ fontFamily: "Cinzel, serif", fontSize: 13 }}
+            data-ocid="spells.primary_button"
+          >
+            + Add Spell
+          </button>
+        </div>
       </div>
 
+      {/* Spell List */}
       {loading ? (
         <p style={{ color: "var(--ds-muted)" }}>Loading spells...</p>
       ) : grouped.length === 0 ? (
@@ -305,6 +367,7 @@ export default function SpellsTab({
             textAlign: "center",
             marginTop: 32,
           }}
+          data-ocid="spells.empty_state"
         >
           No spells found. Add your first spell!
         </p>
@@ -323,11 +386,12 @@ export default function SpellsTab({
             >
               {lvl === 0 ? "CANTRIPS" : `LEVEL ${lvl}`}
             </h3>
-            {lvlSpells.map((spell) => (
+            {lvlSpells.map((spell, i) => (
               <div
                 key={spell.id.toString()}
                 className="ds-card2"
                 style={{ padding: 12, marginBottom: 8 }}
+                data-ocid={`spells.item.${i + 1}`}
               >
                 <div
                   style={{
@@ -423,6 +487,7 @@ export default function SpellsTab({
                       className="ds-btn-ghost"
                       style={{ fontSize: 12, padding: "4px 8px" }}
                       onClick={() => openEdit(spell)}
+                      data-ocid={`spells.edit_button.${i + 1}`}
                     >
                       Edit
                     </button>
@@ -436,6 +501,7 @@ export default function SpellsTab({
                         cursor: "pointer",
                         padding: 4,
                       }}
+                      data-ocid={`spells.delete_button.${i + 1}`}
                     >
                       🗑️
                     </button>
@@ -447,6 +513,7 @@ export default function SpellsTab({
         ))
       )}
 
+      {/* Spell Form Modal */}
       {showForm && (
         <SpellFormDialog
           form={form}
@@ -457,6 +524,172 @@ export default function SpellsTab({
           saving={saving}
           editing={!!editing}
         />
+      )}
+
+      {/* Library Modal */}
+      {showLibrary && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            backgroundColor: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+          data-ocid="spells.modal"
+        >
+          <div
+            className="ds-card"
+            style={{
+              width: "100%",
+              maxWidth: 600,
+              maxHeight: "85vh",
+              overflow: "auto",
+              padding: 24,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 16,
+              }}
+            >
+              <h2
+                className="font-cinzel"
+                style={{ color: "var(--ds-gold)", fontSize: 18 }}
+              >
+                📚 Spell Library
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowLibrary(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--ds-muted)",
+                  cursor: "pointer",
+                  fontSize: 20,
+                }}
+                data-ocid="spells.close_button"
+              >
+                ×
+              </button>
+            </div>
+            <input
+              className="ds-input"
+              placeholder="Search spells..."
+              value={librarySearch}
+              onChange={(e) => setLibrarySearch(e.target.value)}
+              style={{ marginBottom: 16, width: "100%" }}
+              data-ocid="spells.search_input"
+            />
+            {libraryLoading ? (
+              <p
+                style={{ color: "var(--ds-muted)" }}
+                data-ocid="spells.loading_state"
+              >
+                Loading library...
+              </p>
+            ) : filteredLibrary.length === 0 ? (
+              <p
+                style={{
+                  color: "var(--ds-muted)",
+                  textAlign: "center",
+                  padding: "24px 0",
+                }}
+                data-ocid="spells.empty_state"
+              >
+                {librarySpells.length === 0
+                  ? "No custom spells in your library. Add spells in Settings → Custom Spells."
+                  : "No spells match your search."}
+              </p>
+            ) : (
+              filteredLibrary.map((s) => (
+                <div
+                  key={s.id.toString()}
+                  className="ds-card2"
+                  style={{
+                    padding: 12,
+                    marginBottom: 8,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span
+                        style={{ color: "var(--ds-text)", fontWeight: 600 }}
+                      >
+                        {s.name}
+                      </span>
+                      <span
+                        style={{
+                          color: "var(--ds-gold)",
+                          fontSize: 11,
+                          backgroundColor: "rgba(201,163,90,0.1)",
+                          padding: "2px 6px",
+                          borderRadius: 10,
+                        }}
+                      >
+                        {s.school}
+                      </span>
+                      <span style={{ color: "var(--ds-muted)", fontSize: 12 }}>
+                        {Number(s.level) === 0 ? "Cantrip" : `Level ${s.level}`}
+                      </span>
+                    </div>
+                    {s.damageEffect && (
+                      <div
+                        style={{ color: "#e74c3c", fontSize: 12, marginTop: 4 }}
+                      >
+                        ⚔️ {s.damageEffect}
+                      </div>
+                    )}
+                    {s.description && (
+                      <p
+                        style={{
+                          color: "var(--ds-muted)",
+                          fontSize: 12,
+                          marginTop: 4,
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {s.description}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    className="ds-btn-primary"
+                    onClick={() => addFromLibrary(s)}
+                    disabled={addingFromLib === s.id}
+                    style={{
+                      fontSize: 12,
+                      padding: "6px 12px",
+                      fontFamily: "Cinzel, serif",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {addingFromLib === s.id ? "Adding..." : "+ Add"}
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
@@ -491,6 +724,7 @@ function SpellFormDialog({
         justifyContent: "center",
         padding: 16,
       }}
+      data-ocid="spells.dialog"
     >
       <div
         className="ds-card"
@@ -526,6 +760,7 @@ function SpellFormDialog({
               cursor: "pointer",
               fontSize: 20,
             }}
+            data-ocid="spells.close_button"
           >
             ×
           </button>
@@ -547,6 +782,7 @@ function SpellFormDialog({
               value={form.name as string}
               onChange={(e) => onField("name", e.target.value)}
               placeholder="e.g. Fireball"
+              data-ocid="spells.input"
             />
           </label>
           <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -576,13 +812,15 @@ function SpellFormDialog({
               ))}
             </select>
           </label>
-          {[
-            ["castingTime", "Casting Time"],
-            ["range", "Range"],
-            ["components", "Components"],
-            ["duration", "Duration"],
-            ["damageEffect", "Damage / Effect"],
-          ].map(([k, l]) => (
+          {(
+            [
+              ["castingTime", "Casting Time"],
+              ["range", "Range"],
+              ["components", "Components"],
+              ["duration", "Duration"],
+              ["damageEffect", "Damage / Effect"],
+            ] as [string, string][]
+          ).map(([k, l]) => (
             <label
               key={k}
               style={{ display: "flex", flexDirection: "column", gap: 4 }}
@@ -621,7 +859,12 @@ function SpellFormDialog({
             justifyContent: "flex-end",
           }}
         >
-          <button type="button" className="ds-btn-ghost" onClick={onClose}>
+          <button
+            type="button"
+            className="ds-btn-ghost"
+            onClick={onClose}
+            data-ocid="spells.cancel_button"
+          >
             Cancel
           </button>
           <button
@@ -630,6 +873,7 @@ function SpellFormDialog({
             onClick={onSave}
             disabled={saving || !(form.name as string).trim()}
             style={{ fontFamily: "Cinzel, serif" }}
+            data-ocid="spells.submit_button"
           >
             {saving ? "Saving..." : editing ? "Save Changes" : "Add Spell"}
           </button>

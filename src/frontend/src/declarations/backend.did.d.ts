@@ -60,6 +60,29 @@ export interface CustomRace {
   'description' : string,
   'speed' : bigint,
 }
+export interface CustomSpell {
+  'name' : string,
+  'level' : bigint,
+  'school' : string,
+  'castingTime' : string,
+  'range' : string,
+  'components' : string,
+  'duration' : string,
+  'damageEffect' : string,
+  'description' : string,
+  'owner' : Principal,
+}
+export interface CustomItem {
+  'name' : string,
+  'description' : string,
+  'weight' : string,
+  'value' : string,
+  'itemType' : string,
+  'rarity' : string,
+  'owner' : Principal,
+}
+export type CustomSpellId = bigint;
+export type CustomItemId = bigint;
 export interface InventoryItem {
   'weight' : bigint,
   'name' : string,
@@ -122,6 +145,8 @@ export interface _SERVICE {
   'addRace' : ActorMethod<[CustomRace], RaceId>,
   'addSpell' : ActorMethod<[Spell], SpellId>,
   'addTrait' : ActorMethod<[Trait], TraitId>,
+  'addCustomSpell' : ActorMethod<[CustomSpell], CustomSpellId>,
+  'addCustomItem' : ActorMethod<[CustomItem], CustomItemId>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createCharacter' : ActorMethod<[Character], CharacterId>,
   'deleteCharacter' : ActorMethod<[CharacterId], undefined>,
@@ -130,9 +155,13 @@ export interface _SERVICE {
   'deleteRace' : ActorMethod<[RaceId], undefined>,
   'deleteSpell' : ActorMethod<[SpellId], undefined>,
   'deleteTrait' : ActorMethod<[TraitId], undefined>,
+  'deleteCustomSpell' : ActorMethod<[CustomSpellId], undefined>,
+  'deleteCustomItem' : ActorMethod<[CustomItemId], undefined>,
   'getAllCharacters' : ActorMethod<[], Array<[CharacterId, Character]>>,
   'getAllClasses' : ActorMethod<[], Array<[ClassId, CustomClass]>>,
   'getAllRaces' : ActorMethod<[], Array<[RaceId, CustomRace]>>,
+  'getAllCustomSpells' : ActorMethod<[], Array<[CustomSpellId, CustomSpell]>>,
+  'getAllCustomItems' : ActorMethod<[], Array<[CustomItemId, CustomItem]>>,
   'getAllUserProfiles' : ActorMethod<[], Array<[Principal, UserProfile]>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
@@ -154,6 +183,8 @@ export interface _SERVICE {
   'updateSettings' : ActorMethod<[Settings], undefined>,
   'updateSpell' : ActorMethod<[SpellId, Spell], undefined>,
   'updateTrait' : ActorMethod<[TraitId, Trait], undefined>,
+  'updateCustomSpell' : ActorMethod<[CustomSpellId, CustomSpell], undefined>,
+  'updateCustomItem' : ActorMethod<[CustomItemId, CustomItem], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

@@ -30,6 +30,11 @@ export interface Skills {
 }
 export type TraitId = bigint;
 export type RaceId = bigint;
+export type SpellId = bigint;
+export type ClassId = bigint;
+export type InventoryItemId = bigint;
+export type CustomSpellId = bigint;
+export type CustomItemId = bigint;
 export interface Spell {
     duration: string;
     school: string;
@@ -42,14 +47,34 @@ export interface Spell {
     range: string;
     castingTime: string;
 }
+export interface Abilities {
+    cha: bigint;
+    con: bigint;
+    dex: bigint;
+    int: bigint;
+    str: bigint;
+    wis: bigint;
+}
+export interface Trait {
+    source: string;
+    name: string;
+    description: string;
+    characterId: CharacterId;
+}
 export interface CustomClass {
-    features: Array<Trait>;
     name: string;
     hitDie: bigint;
     description: string;
     proficiencies: Array<string>;
+    features: Array<Trait>;
 }
-export type InventoryItemId = bigint;
+export interface CustomRace {
+    name: string;
+    description: string;
+    speed: bigint;
+    abilityBonuses: Abilities;
+    traits: Array<Trait>;
+}
 export interface Character {
     ac: bigint;
     cha: bigint;
@@ -76,12 +101,6 @@ export interface Character {
     alignment: string;
     initiative: bigint;
 }
-export interface Trait {
-    source: string;
-    name: string;
-    description: string;
-    characterId: CharacterId;
-}
 export interface InventoryItem {
     weight: bigint;
     name: string;
@@ -90,25 +109,29 @@ export interface InventoryItem {
     quantity: bigint;
     characterId: CharacterId;
 }
-export interface Settings {
-    maxLevel: bigint;
+export interface CustomSpell {
+    name: string;
+    level: bigint;
+    school: string;
+    castingTime: string;
+    range: string;
+    components: string;
+    duration: string;
+    damageEffect: string;
+    description: string;
+    owner: Principal;
 }
-export type SpellId = bigint;
-export type ClassId = bigint;
-export interface CustomRace {
-    abilityBonuses: Abilities;
-    traits: Array<Trait>;
+export interface CustomItem {
     name: string;
     description: string;
-    speed: bigint;
+    weight: string;
+    value: string;
+    itemType: string;
+    rarity: string;
+    owner: Principal;
 }
-export interface Abilities {
-    cha: bigint;
-    con: bigint;
-    dex: bigint;
-    int: bigint;
-    str: bigint;
-    wis: bigint;
+export interface Settings {
+    maxLevel: bigint;
 }
 export interface UserProfile {
     name: string;
@@ -124,6 +147,8 @@ export interface backendInterface {
     addRace(race: CustomRace): Promise<RaceId>;
     addSpell(spell: Spell): Promise<SpellId>;
     addTrait(trait: Trait): Promise<TraitId>;
+    addCustomSpell(spell: CustomSpell): Promise<CustomSpellId>;
+    addCustomItem(item: CustomItem): Promise<CustomItemId>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createCharacter(char: Character): Promise<CharacterId>;
     deleteCharacter(id: CharacterId): Promise<void>;
@@ -132,9 +157,13 @@ export interface backendInterface {
     deleteRace(id: RaceId): Promise<void>;
     deleteSpell(id: SpellId): Promise<void>;
     deleteTrait(id: TraitId): Promise<void>;
+    deleteCustomSpell(id: CustomSpellId): Promise<void>;
+    deleteCustomItem(id: CustomItemId): Promise<void>;
     getAllCharacters(): Promise<Array<[CharacterId, Character]>>;
     getAllClasses(): Promise<Array<[ClassId, CustomClass]>>;
     getAllRaces(): Promise<Array<[RaceId, CustomRace]>>;
+    getAllCustomSpells(): Promise<Array<[CustomSpellId, CustomSpell]>>;
+    getAllCustomItems(): Promise<Array<[CustomItemId, CustomItem]>>;
     getAllUserProfiles(): Promise<Array<[Principal, UserProfile]>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
@@ -153,4 +182,6 @@ export interface backendInterface {
     updateSettings(newSettings: Settings): Promise<void>;
     updateSpell(id: SpellId, spell: Spell): Promise<void>;
     updateTrait(id: TraitId, trait: Trait): Promise<void>;
+    updateCustomSpell(id: CustomSpellId, spell: CustomSpell): Promise<void>;
+    updateCustomItem(id: CustomItemId, item: CustomItem): Promise<void>;
 }

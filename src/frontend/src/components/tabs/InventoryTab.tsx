@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import type { Character, DndBackend, InventoryItem } from "../../types";
+import type {
+  Character,
+  CustomItem,
+  DndBackend,
+  InventoryItem,
+} from "../../types";
 
 interface Props {
   actor: DndBackend;
@@ -9,10 +14,12 @@ interface Props {
 }
 
 type ItemWithId = { id: bigint } & InventoryItem;
+type CustomItemWithId = { id: bigint } & CustomItem;
+
 const EMPTY_ITEM = {
   name: "",
   quantity: 1,
-  weight: "",
+  weight: 0,
   description: "",
   equipped: false,
 };
@@ -30,6 +37,13 @@ export default function InventoryTab({
   const [form, setForm] = useState({ ...EMPTY_ITEM });
   const [saving, setSaving] = useState(false);
   const [editingCurrency, setEditingCurrency] = useState(false);
+
+  // Library modal state
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [libraryItems, setLibraryItems] = useState<CustomItemWithId[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [addingFromLib, setAddingFromLib] = useState<bigint | null>(null);
 
   const cp = Number(character.gold) % 10;
   const sp = Math.floor(Number(character.gold) / 10) % 10;
@@ -51,6 +65,34 @@ export default function InventoryTab({
     load();
   }, [load]);
 
+  const openLibrary = async () => {
+    setShowLibrary(true);
+    setLibrarySearch("");
+    setLibraryLoading(true);
+    const result = (await actor.getAllCustomItems()) as unknown as [
+      bigint,
+      CustomItem,
+    ][];
+    setLibraryItems(result.map(([id, item]) => ({ id, ...item })));
+    setLibraryLoading(false);
+  };
+
+  const addFromLibrary = async (libItem: CustomItemWithId) => {
+    setAddingFromLib(libItem.id);
+    const item: InventoryItem = {
+      characterId,
+      name: libItem.name,
+      description: libItem.description,
+      weight: 0n, // CustomItem.weight is a string (e.g. "3 lbs"), InventoryItem.weight is bigint
+      quantity: 1n,
+      equipped: false,
+    };
+    await actor.addItem(item);
+    await load();
+    setAddingFromLib(null);
+    setShowLibrary(false);
+  };
+
   const openNew = () => {
     setEditing(null);
     setForm({ ...EMPTY_ITEM });
@@ -61,7 +103,7 @@ export default function InventoryTab({
     setForm({
       name: item.name,
       quantity: Number(item.quantity),
-      weight: item.weight,
+      weight: Number(item.weight),
       description: item.description,
       equipped: item.equipped,
     });
@@ -74,7 +116,7 @@ export default function InventoryTab({
       characterId,
       name: form.name,
       quantity: BigInt(form.quantity),
-      weight: form.weight,
+      weight: BigInt(form.weight),
       description: form.description,
       equipped: form.equipped,
     };
@@ -113,6 +155,13 @@ export default function InventoryTab({
 
   const f = (field: string, val: string | number | boolean) =>
     setForm((prev) => ({ ...prev, [field]: val }));
+
+  const filteredLibrary = libraryItems.filter(
+    (item) =>
+      item.name.toLowerCase().includes(librarySearch.toLowerCase()) ||
+      item.itemType.toLowerCase().includes(librarySearch.toLowerCase()) ||
+      item.rarity.toLowerCase().includes(librarySearch.toLowerCase()),
+  );
 
   return (
     <div>
@@ -162,64 +211,66 @@ export default function InventoryTab({
             </div>
           )}
         </div>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {(["pp", "gp", "ep", "sp", "cp"] as const).map((coin) => (
-            <div key={coin} style={{ textAlign: "center" }}>
-              <div
+        {editingCurrency ? (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {(["cp", "sp", "ep", "gp", "pp"] as const).map((coin) => (
+              <label
+                key={coin}
                 style={{
-                  color: "var(--ds-muted)",
-                  fontSize: 11,
-                  marginBottom: 4,
-                  textTransform: "uppercase",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                  minWidth: 50,
                 }}
               >
-                {coin}
-              </div>
-              {editingCurrency ? (
+                <span
+                  style={{
+                    color: "var(--ds-muted)",
+                    fontSize: 11,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {coin}
+                </span>
                 <input
+                  className="ds-input"
                   type="number"
                   min={0}
                   value={currency[coin]}
                   onChange={(e) =>
                     setCurrency((prev) => ({
                       ...prev,
-                      [coin]: Number.parseInt(e.target.value) || 0,
+                      [coin]: Number(e.target.value) || 0,
                     }))
                   }
-                  style={{
-                    width: 56,
-                    textAlign: "center",
-                    backgroundColor: "var(--ds-surface2)",
-                    border: "1px solid var(--ds-gold)",
-                    color: "var(--ds-text)",
-                    borderRadius: 4,
-                    padding: "4px 0",
-                  }}
+                  style={{ width: 70 }}
                 />
-              ) : (
-                <div
-                  style={{
-                    width: 56,
-                    height: 36,
-                    backgroundColor: "var(--ds-surface2)",
-                    border: "1px solid var(--ds-border)",
-                    borderRadius: 6,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "var(--ds-gold)",
-                    fontSize: 16,
-                    fontWeight: 700,
-                  }}
-                >
-                  {currency[coin]}
+              </label>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+            {[
+              { label: "PP", value: pp, color: "#c0c0e0" },
+              { label: "GP", value: gp, color: "#ffd700" },
+              { label: "EP", value: ep, color: "#c0c0c0" },
+              { label: "SP", value: sp, color: "#aaa" },
+              { label: "CP", value: cp, color: "#b87333" },
+            ].map(({ label, value, color }) => (
+              <div key={label} style={{ textAlign: "center" }}>
+                <div style={{ color, fontWeight: 700, fontSize: 18 }}>
+                  {value}
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
+                <div style={{ color: "var(--ds-muted)", fontSize: 11 }}>
+                  {label}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
+      {/* Inventory Header */}
       <div
         style={{
           display: "flex",
@@ -230,22 +281,39 @@ export default function InventoryTab({
       >
         <h3
           className="font-cinzel"
-          style={{ color: "var(--ds-gold)", fontSize: 16 }}
+          style={{ color: "var(--ds-gold)", fontSize: 14 }}
         >
-          EQUIPMENT ({items.length})
+          INVENTORY ({items.length} items)
         </h3>
-        <button
-          type="button"
-          className="ds-btn-primary"
-          onClick={openNew}
-          style={{ fontFamily: "Cinzel, serif", fontSize: 13 }}
-        >
-          + Add Item
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            className="ds-btn-ghost"
+            onClick={openLibrary}
+            style={{ fontSize: 12, padding: "4px 10px" }}
+            data-ocid="inventory.secondary_button"
+          >
+            📚 Library
+          </button>
+          <button
+            type="button"
+            className="ds-btn-primary"
+            onClick={openNew}
+            style={{ fontSize: 12, padding: "4px 10px" }}
+            data-ocid="inventory.primary_button"
+          >
+            + Add Item
+          </button>
+        </div>
       </div>
 
       {loading ? (
-        <p style={{ color: "var(--ds-muted)" }}>Loading items...</p>
+        <p
+          style={{ color: "var(--ds-muted)", fontSize: 14 }}
+          data-ocid="inventory.loading_state"
+        >
+          Loading...
+        </p>
       ) : items.length === 0 ? (
         <p
           style={{
@@ -253,113 +321,113 @@ export default function InventoryTab({
             textAlign: "center",
             marginTop: 32,
           }}
+          data-ocid="inventory.empty_state"
         >
-          No items. Add equipment to your inventory!
+          No items yet. Add gear or browse your homebrew library!
         </p>
       ) : (
-        items.map((item) => (
-          <div
-            key={item.id.toString()}
-            className="ds-card2"
-            style={{
-              padding: 12,
-              marginBottom: 8,
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => toggleEquipped(item)}
-              title={item.equipped ? "Equipped" : "Not equipped"}
+        <div>
+          {items.map((item, i) => (
+            <div
+              key={item.id.toString()}
+              className="ds-card2"
               style={{
-                width: 20,
-                height: 20,
-                borderRadius: 4,
-                border: "2px solid var(--ds-gold)",
-                backgroundColor: item.equipped
-                  ? "var(--ds-gold)"
-                  : "transparent",
-                cursor: "pointer",
-                flexShrink: 0,
+                padding: 12,
+                marginBottom: 8,
+                opacity: item.equipped ? 1 : 0.85,
               }}
-            />
-            <div style={{ flex: 1 }}>
+              data-ocid={`inventory.item.${i + 1}`}
+            >
               <div
                 style={{
                   display: "flex",
-                  gap: 8,
-                  alignItems: "center",
-                  flexWrap: "wrap",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
                 }}
               >
-                <span style={{ color: "var(--ds-text)", fontWeight: 600 }}>
-                  {item.name}
-                </span>
-                {item.equipped && (
-                  <span
+                <div style={{ flex: 1 }}>
+                  <div
                     style={{
-                      color: "var(--ds-gold)",
-                      fontSize: 11,
-                      backgroundColor: "rgba(201,163,90,0.1)",
-                      padding: "1px 6px",
-                      borderRadius: 10,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      marginBottom: 4,
                     }}
                   >
-                    Equipped
-                  </span>
-                )}
-                {item.quantity > 1n && (
-                  <span style={{ color: "var(--ds-muted)", fontSize: 12 }}>
-                    x{item.quantity.toString()}
-                  </span>
-                )}
-                {item.weight && (
-                  <span style={{ color: "var(--ds-muted)", fontSize: 12 }}>
-                    {item.weight}
-                  </span>
-                )}
+                    <button
+                      type="button"
+                      onClick={() => toggleEquipped(item)}
+                      title={item.equipped ? "Equipped" : "Unequipped"}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        fontSize: 16,
+                        padding: 0,
+                        lineHeight: 1,
+                      }}
+                    >
+                      {item.equipped ? "🛡️" : "🎒"}
+                    </button>
+                    <span style={{ color: "var(--ds-text)", fontWeight: 600 }}>
+                      {item.name}
+                    </span>
+                    <span style={{ color: "var(--ds-muted)", fontSize: 12 }}>
+                      ×{item.quantity.toString()}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    {Number(item.weight) > 0 && (
+                      <span style={{ color: "var(--ds-muted)", fontSize: 12 }}>
+                        ⚖ {item.weight.toString()} lb
+                      </span>
+                    )}
+                  </div>
+                  {item.description && (
+                    <p
+                      style={{
+                        color: "var(--ds-muted)",
+                        fontSize: 12,
+                        marginTop: 4,
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {item.description}
+                    </p>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 6, marginLeft: 8 }}>
+                  <button
+                    type="button"
+                    className="ds-btn-ghost"
+                    style={{ fontSize: 12, padding: "4px 8px" }}
+                    onClick={() => openEdit(item)}
+                    data-ocid={`inventory.edit_button.${i + 1}`}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(item.id)}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#666",
+                      cursor: "pointer",
+                      padding: 4,
+                    }}
+                    data-ocid={`inventory.delete_button.${i + 1}`}
+                  >
+                    🗑️
+                  </button>
+                </div>
               </div>
-              {item.description && (
-                <p
-                  style={{
-                    color: "var(--ds-muted)",
-                    fontSize: 12,
-                    marginTop: 4,
-                  }}
-                >
-                  {item.description}
-                </p>
-              )}
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button
-                type="button"
-                className="ds-btn-ghost"
-                style={{ fontSize: 12, padding: "4px 8px" }}
-                onClick={() => openEdit(item)}
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDelete(item.id)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "#666",
-                  cursor: "pointer",
-                  padding: 4,
-                }}
-              >
-                🗑️
-              </button>
-            </div>
-          </div>
-        ))
+          ))}
+        </div>
       )}
 
+      {/* Add/Edit Item Form Modal */}
       {showForm && (
         <div
           style={{
@@ -372,6 +440,7 @@ export default function InventoryTab({
             justifyContent: "center",
             padding: 16,
           }}
+          data-ocid="inventory.modal"
         >
           <div
             className="ds-card"
@@ -401,6 +470,7 @@ export default function InventoryTab({
                   cursor: "pointer",
                   fontSize: 20,
                 }}
+                data-ocid="inventory.close_button"
               >
                 ×
               </button>
@@ -414,7 +484,7 @@ export default function InventoryTab({
                   className="ds-input"
                   value={form.name}
                   onChange={(e) => f("name", e.target.value)}
-                  placeholder="e.g. Longsword"
+                  data-ocid="inventory.input"
                 />
               </label>
               <div
@@ -433,20 +503,19 @@ export default function InventoryTab({
                     type="number"
                     min={1}
                     value={form.quantity}
-                    onChange={(e) =>
-                      f("quantity", Number.parseInt(e.target.value) || 1)
-                    }
+                    onChange={(e) => f("quantity", Number(e.target.value) || 1)}
                   />
                 </label>
                 <label
                   style={{ display: "flex", flexDirection: "column", gap: 4 }}
                 >
-                  <span className="ds-label">Weight</span>
+                  <span className="ds-label">Weight (lbs)</span>
                   <input
                     className="ds-input"
+                    type="number"
+                    min={0}
                     value={form.weight}
-                    onChange={(e) => f("weight", e.target.value)}
-                    placeholder="e.g. 3 lbs"
+                    onChange={(e) => f("weight", Number(e.target.value) || 0)}
                   />
                 </label>
               </div>
@@ -458,7 +527,7 @@ export default function InventoryTab({
                   className="ds-input"
                   value={form.description}
                   onChange={(e) => f("description", e.target.value)}
-                  rows={2}
+                  rows={3}
                   style={{ resize: "vertical" }}
                 />
               </label>
@@ -475,9 +544,7 @@ export default function InventoryTab({
                   checked={form.equipped}
                   onChange={(e) => f("equipped", e.target.checked)}
                 />
-                <span style={{ color: "var(--ds-text)", fontSize: 14 }}>
-                  Currently Equipped
-                </span>
+                <span className="ds-label">Equipped</span>
               </label>
             </div>
             <div
@@ -492,6 +559,7 @@ export default function InventoryTab({
                 type="button"
                 className="ds-btn-ghost"
                 onClick={() => setShowForm(false)}
+                data-ocid="inventory.cancel_button"
               >
                 Cancel
               </button>
@@ -501,9 +569,162 @@ export default function InventoryTab({
                 onClick={handleSave}
                 disabled={saving || !form.name.trim()}
                 style={{ fontFamily: "Cinzel, serif" }}
+                data-ocid="inventory.submit_button"
               >
                 {saving ? "Saving..." : editing ? "Save Changes" : "Add Item"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Library Modal */}
+      {showLibrary && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            backgroundColor: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+          data-ocid="inventory.dialog"
+        >
+          <div
+            className="ds-card"
+            style={{
+              width: "100%",
+              maxWidth: 540,
+              maxHeight: "80vh",
+              display: "flex",
+              flexDirection: "column",
+              padding: 24,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 16,
+              }}
+            >
+              <h2
+                className="font-cinzel"
+                style={{ color: "var(--ds-gold)", fontSize: 18 }}
+              >
+                Item Library
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowLibrary(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--ds-muted)",
+                  cursor: "pointer",
+                  fontSize: 20,
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <input
+              className="ds-input"
+              placeholder="Search items..."
+              value={librarySearch}
+              onChange={(e) => setLibrarySearch(e.target.value)}
+              style={{ marginBottom: 12 }}
+              data-ocid="inventory.search_input"
+            />
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {libraryLoading ? (
+                <p style={{ color: "var(--ds-muted)", fontSize: 14 }}>
+                  Loading library...
+                </p>
+              ) : filteredLibrary.length === 0 ? (
+                <p
+                  style={{
+                    color: "var(--ds-muted)",
+                    textAlign: "center",
+                    marginTop: 24,
+                  }}
+                >
+                  {libraryItems.length === 0
+                    ? "No items in your library. Add custom items in Settings."
+                    : "No items match your search."}
+                </p>
+              ) : (
+                filteredLibrary.map((item) => (
+                  <div
+                    key={item.id.toString()}
+                    className="ds-card2"
+                    style={{
+                      padding: 12,
+                      marginBottom: 8,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          alignItems: "center",
+                          marginBottom: 4,
+                        }}
+                      >
+                        <span
+                          style={{ color: "var(--ds-text)", fontWeight: 600 }}
+                        >
+                          {item.name}
+                        </span>
+                        <span
+                          style={{
+                            color: "var(--ds-gold)",
+                            fontSize: 11,
+                            backgroundColor: "rgba(201,163,90,0.1)",
+                            padding: "2px 6px",
+                            borderRadius: 10,
+                          }}
+                        >
+                          {item.itemType}
+                        </span>
+                      </div>
+                      {item.description && (
+                        <p
+                          style={{
+                            color: "var(--ds-muted)",
+                            fontSize: 12,
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="ds-btn-primary"
+                      onClick={() => addFromLibrary(item)}
+                      disabled={addingFromLib === item.id}
+                      style={{
+                        fontSize: 12,
+                        padding: "4px 12px",
+                        marginLeft: 12,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {addingFromLib === item.id ? "Adding..." : "+ Add"}
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

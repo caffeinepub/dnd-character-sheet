@@ -1,5 +1,14 @@
+import type { Principal } from "@icp-sdk/core/principal";
 import { useCallback, useEffect, useState } from "react";
-import type { CustomClass, CustomRace, DndBackend } from "../types";
+import type {
+  Abilities,
+  CustomClass,
+  CustomItem,
+  CustomRace,
+  CustomSpell,
+  DndBackend,
+  Trait,
+} from "../types";
 
 interface Props {
   actor: DndBackend;
@@ -8,21 +17,174 @@ interface Props {
 
 type RaceWithId = { id: bigint } & CustomRace;
 type ClassWithId = { id: bigint } & CustomClass;
+type SpellWithId = { id: bigint } & CustomSpell;
+type ItemWithId = { id: bigint } & CustomItem;
 
-const EMPTY_RACE = {
+// Form state uses simple primitives for editing; we convert on save
+interface RaceFormState {
+  name: string;
+  description: string;
+  speed: number;
+  // ability bonuses as plain numbers for form inputs
+  ab_str: number;
+  ab_dex: number;
+  ab_con: number;
+  ab_int: number;
+  ab_wis: number;
+  ab_cha: number;
+  // traits as newline-separated names (simple text UI)
+  traitsText: string;
+}
+
+interface ClassFormState {
+  name: string;
+  hitDie: number;
+  description: string;
+  // proficiencies one per line
+  proficienciesText: string;
+  // features one per line (name only)
+  featuresText: string;
+}
+
+const EMPTY_RACE: RaceFormState = {
   name: "",
   description: "",
   speed: 30,
-  abilityBonuses: "",
-  traits: "",
+  ab_str: 0,
+  ab_dex: 0,
+  ab_con: 0,
+  ab_int: 0,
+  ab_wis: 0,
+  ab_cha: 0,
+  traitsText: "",
 };
-const EMPTY_CLASS = {
+
+const EMPTY_CLASS: ClassFormState = {
   name: "",
   hitDie: 8,
   description: "",
-  proficiencies: "",
-  features: "",
+  proficienciesText: "",
+  featuresText: "",
 };
+
+const EMPTY_SPELL = {
+  name: "",
+  level: 0,
+  school: "Evocation",
+  castingTime: "1 action",
+  range: "",
+  components: "",
+  duration: "",
+  damageEffect: "",
+  description: "",
+};
+const EMPTY_ITEM = {
+  name: "",
+  description: "",
+  weight: "",
+  value: "",
+  itemType: "Other",
+  rarity: "Common",
+};
+
+const SPELL_SCHOOLS = [
+  "Abjuration",
+  "Conjuration",
+  "Divination",
+  "Enchantment",
+  "Evocation",
+  "Illusion",
+  "Necromancy",
+  "Transmutation",
+];
+const ITEM_TYPES = [
+  "Weapon",
+  "Armor",
+  "Potion",
+  "Tool",
+  "Wondrous Item",
+  "Ring",
+  "Rod",
+  "Scroll",
+  "Staff",
+  "Wand",
+  "Other",
+];
+const RARITIES = [
+  "Common",
+  "Uncommon",
+  "Rare",
+  "Very Rare",
+  "Legendary",
+  "Artifact",
+];
+
+type Section = "general" | "races" | "classes" | "spells" | "items";
+
+// Helpers: convert between form state and backend types
+function abilitiesToForm(ab: Abilities) {
+  return {
+    ab_str: Number(ab.str),
+    ab_dex: Number(ab.dex),
+    ab_con: Number(ab.con),
+    ab_int: Number(ab.int),
+    ab_wis: Number(ab.wis),
+    ab_cha: Number(ab.cha),
+  };
+}
+
+function formToAbilities(f: RaceFormState): Abilities {
+  return {
+    str: BigInt(f.ab_str),
+    dex: BigInt(f.ab_dex),
+    con: BigInt(f.ab_con),
+    int: BigInt(f.ab_int),
+    wis: BigInt(f.ab_wis),
+    cha: BigInt(f.ab_cha),
+  };
+}
+
+function traitArrayToText(traits: Trait[]): string {
+  return traits
+    .map((t) => (t.description ? `${t.name}: ${t.description}` : t.name))
+    .join("\n");
+}
+
+function textToTraitArray(text: string, source: string): Trait[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const colonIdx = line.indexOf(":");
+      if (colonIdx > -1) {
+        return {
+          name: line.slice(0, colonIdx).trim(),
+          description: line.slice(colonIdx + 1).trim(),
+          source,
+          characterId: 0n,
+        };
+      }
+      return { name: line, description: "", source, characterId: 0n };
+    });
+}
+
+function formatAbilityBonuses(ab: Abilities): string {
+  const parts: string[] = [];
+  const map: [keyof Abilities, string][] = [
+    ["str", "STR"],
+    ["dex", "DEX"],
+    ["con", "CON"],
+    ["int", "INT"],
+    ["wis", "WIS"],
+    ["cha", "CHA"],
+  ];
+  for (const [key, label] of map) {
+    const val = Number(ab[key]);
+    if (val !== 0) parts.push(`${val > 0 ? "+" : ""}${val} ${label}`);
+  }
+  return parts.join(", ") || "None";
+}
 
 export default function SettingsPage({ actor, onBack }: Props) {
   const [maxLevel, setMaxLevel] = useState(20);
@@ -30,32 +192,55 @@ export default function SettingsPage({ actor, onBack }: Props) {
   const [savingLevel, setSavingLevel] = useState(false);
   const [races, setRaces] = useState<RaceWithId[]>([]);
   const [classes, setClasses] = useState<ClassWithId[]>([]);
+  const [customSpells, setCustomSpells] = useState<SpellWithId[]>([]);
+  const [customItems, setCustomItems] = useState<ItemWithId[]>([]);
   const [loading, setLoading] = useState(true);
-  const [section, setSection] = useState<"general" | "races" | "classes">(
-    "general",
-  );
+  const [section, setSection] = useState<Section>("general");
 
+  // Race form
   const [showRaceForm, setShowRaceForm] = useState(false);
   const [editingRace, setEditingRace] = useState<RaceWithId | null>(null);
-  const [raceForm, setRaceForm] = useState({ ...EMPTY_RACE });
+  const [raceForm, setRaceForm] = useState<RaceFormState>({ ...EMPTY_RACE });
   const [savingRace, setSavingRace] = useState(false);
 
+  // Class form
   const [showClassForm, setShowClassForm] = useState(false);
   const [editingClass, setEditingClass] = useState<ClassWithId | null>(null);
-  const [classForm, setClassForm] = useState({ ...EMPTY_CLASS });
+  const [classForm, setClassForm] = useState<ClassFormState>({
+    ...EMPTY_CLASS,
+  });
   const [savingClass, setSavingClass] = useState(false);
+
+  // Custom spell form
+  const [showSpellForm, setShowSpellForm] = useState(false);
+  const [editingSpell, setEditingSpell] = useState<SpellWithId | null>(null);
+  const [spellForm, setSpellForm] = useState({ ...EMPTY_SPELL });
+  const [savingSpell, setSavingSpell] = useState(false);
+
+  // Custom item form
+  const [showItemForm, setShowItemForm] = useState(false);
+  const [editingItem, setEditingItem] = useState<ItemWithId | null>(null);
+  const [itemForm, setItemForm] = useState({ ...EMPTY_ITEM });
+  const [savingItem, setSavingItem] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [settings, raceData, classData] = await Promise.all([
-      actor.getSettings(),
-      actor.getAllRaces() as unknown as Promise<[bigint, CustomRace][]>,
-      actor.getAllClasses() as unknown as Promise<[bigint, CustomClass][]>,
-    ]);
+    const [settings, raceData, classData, spellData, itemData] =
+      await Promise.all([
+        actor.getSettings(),
+        actor.getAllRaces() as unknown as Promise<[bigint, CustomRace][]>,
+        actor.getAllClasses() as unknown as Promise<[bigint, CustomClass][]>,
+        actor.getAllCustomSpells() as unknown as Promise<
+          [bigint, CustomSpell][]
+        >,
+        actor.getAllCustomItems() as unknown as Promise<[bigint, CustomItem][]>,
+      ]);
     setMaxLevel(Number(settings.maxLevel));
     setSavedMaxLevel(Number(settings.maxLevel));
     setRaces(raceData.map(([id, r]) => ({ id, ...r })));
     setClasses(classData.map(([id, c]) => ({ id, ...c })));
+    setCustomSpells(spellData.map(([id, s]) => ({ id, ...s })));
+    setCustomItems(itemData.map(([id, i]) => ({ id, ...i })));
     setLoading(false);
   }, [actor]);
 
@@ -70,6 +255,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
     setSavingLevel(false);
   };
 
+  // Race CRUD
   const openNewRace = () => {
     setEditingRace(null);
     setRaceForm({ ...EMPTY_RACE });
@@ -81,8 +267,8 @@ export default function SettingsPage({ actor, onBack }: Props) {
       name: r.name,
       description: r.description,
       speed: Number(r.speed),
-      abilityBonuses: r.abilityBonuses,
-      traits: r.traits,
+      ...abilitiesToForm(r.abilityBonuses),
+      traitsText: traitArrayToText(r.traits),
     });
     setShowRaceForm(true);
   };
@@ -92,8 +278,8 @@ export default function SettingsPage({ actor, onBack }: Props) {
       name: raceForm.name,
       description: raceForm.description,
       speed: BigInt(raceForm.speed),
-      abilityBonuses: raceForm.abilityBonuses,
-      traits: raceForm.traits,
+      abilityBonuses: formToAbilities(raceForm),
+      traits: textToTraitArray(raceForm.traitsText, raceForm.name),
     };
     if (editingRace) await actor.updateRace(editingRace.id, race);
     else await actor.addRace(race);
@@ -107,6 +293,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
     await load();
   };
 
+  // Class CRUD
   const openNewClass = () => {
     setEditingClass(null);
     setClassForm({ ...EMPTY_CLASS });
@@ -118,19 +305,24 @@ export default function SettingsPage({ actor, onBack }: Props) {
       name: c.name,
       hitDie: Number(c.hitDie),
       description: c.description,
-      proficiencies: c.proficiencies,
-      features: c.features,
+      proficienciesText: c.proficiencies.join("\n"),
+      featuresText: traitArrayToText(c.features),
     });
     setShowClassForm(true);
   };
   const saveClass = async () => {
     setSavingClass(true);
+    const proficiencies = classForm.proficienciesText
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const features = textToTraitArray(classForm.featuresText, classForm.name);
     const cls: CustomClass = {
       name: classForm.name,
       hitDie: BigInt(classForm.hitDie),
       description: classForm.description,
-      proficiencies: classForm.proficiencies,
-      features: classForm.features,
+      proficiencies,
+      features,
     };
     if (editingClass) await actor.updateClass(editingClass.id, cls);
     else await actor.addClass(cls);
@@ -144,11 +336,115 @@ export default function SettingsPage({ actor, onBack }: Props) {
     await load();
   };
 
-  const tabs = [
-    { id: "general" as const, label: "General" },
-    { id: "races" as const, label: `Custom Races (${races.length})` },
-    { id: "classes" as const, label: `Custom Classes (${classes.length})` },
+  // Custom Spell CRUD
+  const openNewSpell = () => {
+    setEditingSpell(null);
+    setSpellForm({ ...EMPTY_SPELL });
+    setShowSpellForm(true);
+  };
+  const openEditSpell = (s: SpellWithId) => {
+    setEditingSpell(s);
+    setSpellForm({
+      name: s.name,
+      level: Number(s.level),
+      school: s.school,
+      castingTime: s.castingTime,
+      range: s.range,
+      components: s.components,
+      duration: s.duration,
+      damageEffect: s.damageEffect,
+      description: s.description,
+    });
+    setShowSpellForm(true);
+  };
+  const saveSpell = async () => {
+    setSavingSpell(true);
+    const spell: CustomSpell = {
+      name: spellForm.name,
+      level: BigInt(spellForm.level),
+      school: spellForm.school,
+      castingTime: spellForm.castingTime,
+      range: spellForm.range,
+      components: spellForm.components,
+      duration: spellForm.duration,
+      damageEffect: spellForm.damageEffect,
+      description: spellForm.description,
+      owner: {} as unknown as Principal,
+    };
+    if (editingSpell) await actor.updateCustomSpell(editingSpell.id, spell);
+    else await actor.addCustomSpell(spell);
+    await load();
+    setShowSpellForm(false);
+    setSavingSpell(false);
+  };
+  const deleteSpell = async (id: bigint) => {
+    if (!confirm("Delete this custom spell?")) return;
+    await actor.deleteCustomSpell(id);
+    await load();
+  };
+
+  // Custom Item CRUD
+  const openNewItem = () => {
+    setEditingItem(null);
+    setItemForm({ ...EMPTY_ITEM });
+    setShowItemForm(true);
+  };
+  const openEditItem = (item: ItemWithId) => {
+    setEditingItem(item);
+    setItemForm({
+      name: item.name,
+      description: item.description,
+      weight: item.weight,
+      value: item.value,
+      itemType: item.itemType,
+      rarity: item.rarity,
+    });
+    setShowItemForm(true);
+  };
+  const saveItem = async () => {
+    setSavingItem(true);
+    const item: CustomItem = {
+      name: itemForm.name,
+      description: itemForm.description,
+      weight: itemForm.weight,
+      value: itemForm.value,
+      itemType: itemForm.itemType,
+      rarity: itemForm.rarity,
+      owner: {} as unknown as Principal,
+    };
+    if (editingItem) await actor.updateCustomItem(editingItem.id, item);
+    else await actor.addCustomItem(item);
+    await load();
+    setShowItemForm(false);
+    setSavingItem(false);
+  };
+  const deleteItem = async (id: bigint) => {
+    if (!confirm("Delete this custom item?")) return;
+    await actor.deleteCustomItem(id);
+    await load();
+  };
+
+  const tabs: { id: Section; label: string }[] = [
+    { id: "general", label: "General" },
+    { id: "races", label: `Custom Races (${races.length})` },
+    { id: "classes", label: `Custom Classes (${classes.length})` },
+    { id: "spells", label: `Custom Spells (${customSpells.length})` },
+    { id: "items", label: `Custom Items (${customItems.length})` },
   ];
+
+  const tabStyle = (id: Section) => ({
+    background: "transparent",
+    border: "none",
+    borderBottom:
+      section === id ? "2px solid var(--ds-gold)" : "2px solid transparent",
+    color: section === id ? "var(--ds-gold)" : "var(--ds-muted)",
+    padding: "10px 16px",
+    cursor: "pointer",
+    fontSize: 13,
+    fontFamily: "Cinzel, serif",
+    marginBottom: -1,
+    whiteSpace: "nowrap" as const,
+  });
 
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "24px 16px" }}>
@@ -175,6 +471,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
           gap: 0,
           borderBottom: "1px solid var(--ds-border)",
           marginBottom: 24,
+          overflowX: "auto",
         }}
       >
         {tabs.map((t) => (
@@ -182,20 +479,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
             type="button"
             key={t.id}
             onClick={() => setSection(t.id)}
-            style={{
-              background: "transparent",
-              border: "none",
-              borderBottom:
-                section === t.id
-                  ? "2px solid var(--ds-gold)"
-                  : "2px solid transparent",
-              color: section === t.id ? "var(--ds-gold)" : "var(--ds-muted)",
-              padding: "10px 20px",
-              cursor: "pointer",
-              fontSize: 14,
-              fontFamily: "Cinzel, serif",
-              marginBottom: -1,
-            }}
+            style={tabStyle(t.id)}
           >
             {t.label}
           </button>
@@ -206,6 +490,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
         <p style={{ color: "var(--ds-muted)" }}>Loading settings...</p>
       ) : (
         <>
+          {/* General */}
           {section === "general" && (
             <div className="ds-card" style={{ padding: 24, maxWidth: 400 }}>
               <h3
@@ -231,17 +516,18 @@ export default function SettingsPage({ actor, onBack }: Props) {
                   className="ds-input"
                   type="number"
                   min={1}
-                  max={99}
+                  max={10000}
                   value={maxLevel}
                   onChange={(e) =>
                     setMaxLevel(
                       Math.min(
-                        99,
+                        10000,
                         Math.max(1, Number.parseInt(e.target.value) || 1),
                       ),
                     )
                   }
-                  style={{ width: 80 }}
+                  style={{ width: 100 }}
+                  data-ocid="settings.input"
                 />
               </label>
               <button
@@ -250,17 +536,19 @@ export default function SettingsPage({ actor, onBack }: Props) {
                 onClick={saveMaxLevel}
                 disabled={savingLevel || maxLevel === savedMaxLevel}
                 style={{ fontFamily: "Cinzel, serif" }}
+                data-ocid="settings.save_button"
               >
                 {savingLevel ? "Saving..." : "Save"}
               </button>
               <p
                 style={{ color: "var(--ds-muted)", fontSize: 13, marginTop: 8 }}
               >
-                Current: {savedMaxLevel}. Range: 1–99.
+                Current: {savedMaxLevel}. Range: 1–10,000.
               </p>
             </div>
           )}
 
+          {/* Custom Races */}
           {section === "races" && (
             <div>
               <div
@@ -279,6 +567,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
                   className="ds-btn-primary"
                   onClick={openNewRace}
                   style={{ fontFamily: "Cinzel, serif", fontSize: 13 }}
+                  data-ocid="races.primary_button"
                 >
                   + Add Race
                 </button>
@@ -290,15 +579,17 @@ export default function SettingsPage({ actor, onBack }: Props) {
                     textAlign: "center",
                     marginTop: 32,
                   }}
+                  data-ocid="races.empty_state"
                 >
                   No custom races. Add your homebrew races here!
                 </p>
               ) : (
-                races.map((r) => (
+                races.map((r, i) => (
                   <div
                     key={r.id.toString()}
                     className="ds-card2"
                     style={{ padding: 14, marginBottom: 8 }}
+                    data-ocid={`races.item.${i + 1}`}
                   >
                     <div
                       style={{
@@ -320,11 +611,14 @@ export default function SettingsPage({ actor, onBack }: Props) {
                         <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>
                           Speed: {r.speed.toString()} ft
                         </div>
-                        {r.abilityBonuses && (
+                        <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>
+                          Bonuses: {formatAbilityBonuses(r.abilityBonuses)}
+                        </div>
+                        {r.traits.length > 0 && (
                           <div
                             style={{ color: "var(--ds-muted)", fontSize: 12 }}
                           >
-                            Bonuses: {r.abilityBonuses}
+                            Traits: {r.traits.map((t) => t.name).join(", ")}
                           </div>
                         )}
                         {r.description && (
@@ -345,6 +639,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
                           className="ds-btn-ghost"
                           style={{ fontSize: 12, padding: "4px 8px" }}
                           onClick={() => openEditRace(r)}
+                          data-ocid={`races.edit_button.${i + 1}`}
                         >
                           Edit
                         </button>
@@ -358,6 +653,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
                             cursor: "pointer",
                             padding: 4,
                           }}
+                          data-ocid={`races.delete_button.${i + 1}`}
                         >
                           🗑️
                         </button>
@@ -369,6 +665,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
             </div>
           )}
 
+          {/* Custom Classes */}
           {section === "classes" && (
             <div>
               <div
@@ -387,6 +684,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
                   className="ds-btn-primary"
                   onClick={openNewClass}
                   style={{ fontFamily: "Cinzel, serif", fontSize: 13 }}
+                  data-ocid="classes.primary_button"
                 >
                   + Add Class
                 </button>
@@ -398,15 +696,17 @@ export default function SettingsPage({ actor, onBack }: Props) {
                     textAlign: "center",
                     marginTop: 32,
                   }}
+                  data-ocid="classes.empty_state"
                 >
                   No custom classes. Add your homebrew classes here!
                 </p>
               ) : (
-                classes.map((c) => (
+                classes.map((c, i) => (
                   <div
                     key={c.id.toString()}
                     className="ds-card2"
                     style={{ padding: 14, marginBottom: 8 }}
+                    data-ocid={`classes.item.${i + 1}`}
                   >
                     <div
                       style={{
@@ -428,11 +728,11 @@ export default function SettingsPage({ actor, onBack }: Props) {
                         <div style={{ color: "var(--ds-muted)", fontSize: 12 }}>
                           Hit Die: d{c.hitDie.toString()}
                         </div>
-                        {c.proficiencies && (
+                        {c.proficiencies.length > 0 && (
                           <div
                             style={{ color: "var(--ds-muted)", fontSize: 12 }}
                           >
-                            Proficiencies: {c.proficiencies}
+                            Proficiencies: {c.proficiencies.join(", ")}
                           </div>
                         )}
                         {c.description && (
@@ -453,6 +753,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
                           className="ds-btn-ghost"
                           style={{ fontSize: 12, padding: "4px 8px" }}
                           onClick={() => openEditClass(c)}
+                          data-ocid={`classes.edit_button.${i + 1}`}
                         >
                           Edit
                         </button>
@@ -466,6 +767,329 @@ export default function SettingsPage({ actor, onBack }: Props) {
                             cursor: "pointer",
                             padding: 4,
                           }}
+                          data-ocid={`classes.delete_button.${i + 1}`}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Custom Spells Library */}
+          {section === "spells" && (
+            <div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 16,
+                }}
+              >
+                <p style={{ color: "var(--ds-muted)", fontSize: 14 }}>
+                  Your homebrew spell library. Use "Add from Library" in the
+                  Spells tab to add these to a character.
+                </p>
+                <button
+                  type="button"
+                  className="ds-btn-primary"
+                  onClick={openNewSpell}
+                  style={{ fontFamily: "Cinzel, serif", fontSize: 13 }}
+                  data-ocid="spells.primary_button"
+                >
+                  + Add Spell
+                </button>
+              </div>
+              {customSpells.length === 0 ? (
+                <p
+                  style={{
+                    color: "var(--ds-muted)",
+                    textAlign: "center",
+                    marginTop: 32,
+                  }}
+                  data-ocid="spells.empty_state"
+                >
+                  No custom spells yet. Create your homebrew spells here!
+                </p>
+              ) : (
+                customSpells.map((s, i) => (
+                  <div
+                    key={s.id.toString()}
+                    className="ds-card2"
+                    style={{ padding: 14, marginBottom: 8 }}
+                    data-ocid={`spells.item.${i + 1}`}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 8,
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            marginBottom: 4,
+                          }}
+                        >
+                          <span
+                            style={{ color: "var(--ds-text)", fontWeight: 600 }}
+                          >
+                            {s.name}
+                          </span>
+                          <span
+                            style={{
+                              color: "var(--ds-gold)",
+                              fontSize: 11,
+                              backgroundColor: "rgba(201,163,90,0.1)",
+                              padding: "2px 6px",
+                              borderRadius: 10,
+                            }}
+                          >
+                            {s.school}
+                          </span>
+                          <span
+                            style={{ color: "var(--ds-muted)", fontSize: 12 }}
+                          >
+                            {Number(s.level) === 0
+                              ? "Cantrip"
+                              : `Level ${s.level}`}
+                          </span>
+                        </div>
+                        <div
+                          style={{ display: "flex", gap: 12, flexWrap: "wrap" }}
+                        >
+                          {s.castingTime && (
+                            <span
+                              style={{ color: "var(--ds-muted)", fontSize: 12 }}
+                            >
+                              ⏱ {s.castingTime}
+                            </span>
+                          )}
+                          {s.range && (
+                            <span
+                              style={{ color: "var(--ds-muted)", fontSize: 12 }}
+                            >
+                              🞹 {s.range}
+                            </span>
+                          )}
+                          {s.duration && (
+                            <span
+                              style={{ color: "var(--ds-muted)", fontSize: 12 }}
+                            >
+                              ⧐ {s.duration}
+                            </span>
+                          )}
+                          {s.damageEffect && (
+                            <span style={{ color: "#e74c3c", fontSize: 12 }}>
+                              ⚔️ {s.damageEffect}
+                            </span>
+                          )}
+                        </div>
+                        {s.description && (
+                          <p
+                            style={{
+                              color: "var(--ds-muted)",
+                              fontSize: 12,
+                              marginTop: 6,
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            {s.description}
+                          </p>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: 6, marginLeft: 8 }}>
+                        <button
+                          type="button"
+                          className="ds-btn-ghost"
+                          style={{ fontSize: 12, padding: "4px 8px" }}
+                          onClick={() => openEditSpell(s)}
+                          data-ocid={`spells.edit_button.${i + 1}`}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteSpell(s.id)}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: "#666",
+                            cursor: "pointer",
+                            padding: 4,
+                          }}
+                          data-ocid={`spells.delete_button.${i + 1}`}
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* Custom Items Library */}
+          {section === "items" && (
+            <div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 16,
+                }}
+              >
+                <p style={{ color: "var(--ds-muted)", fontSize: 14 }}>
+                  Your homebrew item library. Use "Add from Library" in the
+                  Inventory tab to add these to a character.
+                </p>
+                <button
+                  type="button"
+                  className="ds-btn-primary"
+                  onClick={openNewItem}
+                  style={{ fontFamily: "Cinzel, serif", fontSize: 13 }}
+                  data-ocid="items.primary_button"
+                >
+                  + Add Item
+                </button>
+              </div>
+              {customItems.length === 0 ? (
+                <p
+                  style={{
+                    color: "var(--ds-muted)",
+                    textAlign: "center",
+                    marginTop: 32,
+                  }}
+                  data-ocid="items.empty_state"
+                >
+                  No custom items yet. Create your homebrew items here!
+                </p>
+              ) : (
+                customItems.map((item, i) => (
+                  <div
+                    key={item.id.toString()}
+                    className="ds-card2"
+                    style={{ padding: 14, marginBottom: 8 }}
+                    data-ocid={`items.item.${i + 1}`}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 8,
+                            alignItems: "center",
+                            flexWrap: "wrap",
+                            marginBottom: 4,
+                          }}
+                        >
+                          <span
+                            style={{ color: "var(--ds-text)", fontWeight: 600 }}
+                          >
+                            {item.name}
+                          </span>
+                          <span
+                            style={{
+                              color: "var(--ds-gold)",
+                              fontSize: 11,
+                              backgroundColor: "rgba(201,163,90,0.1)",
+                              padding: "2px 6px",
+                              borderRadius: 10,
+                            }}
+                          >
+                            {item.itemType}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              padding: "2px 6px",
+                              borderRadius: 10,
+                              color:
+                                item.rarity === "Legendary" ||
+                                item.rarity === "Artifact"
+                                  ? "#ff9900"
+                                  : item.rarity === "Very Rare"
+                                    ? "#c040fb"
+                                    : item.rarity === "Rare"
+                                      ? "#4488ff"
+                                      : item.rarity === "Uncommon"
+                                        ? "#44cc44"
+                                        : "var(--ds-muted)",
+                              backgroundColor: "rgba(255,255,255,0.05)",
+                            }}
+                          >
+                            {item.rarity}
+                          </span>
+                        </div>
+                        <div
+                          style={{ display: "flex", gap: 12, flexWrap: "wrap" }}
+                        >
+                          {item.weight && (
+                            <span
+                              style={{ color: "var(--ds-muted)", fontSize: 12 }}
+                            >
+                              ⚖ {item.weight}
+                            </span>
+                          )}
+                          {item.value && (
+                            <span
+                              style={{ color: "var(--ds-gold)", fontSize: 12 }}
+                            >
+                              💰 {item.value}
+                            </span>
+                          )}
+                        </div>
+                        {item.description && (
+                          <p
+                            style={{
+                              color: "var(--ds-muted)",
+                              fontSize: 12,
+                              marginTop: 6,
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            {item.description}
+                          </p>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: 6, marginLeft: 8 }}>
+                        <button
+                          type="button"
+                          className="ds-btn-ghost"
+                          style={{ fontSize: 12, padding: "4px 8px" }}
+                          onClick={() => openEditItem(item)}
+                          data-ocid={`items.edit_button.${i + 1}`}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteItem(item.id)}
+                          style={{
+                            background: "transparent",
+                            border: "none",
+                            color: "#666",
+                            cursor: "pointer",
+                            padding: 4,
+                          }}
+                          data-ocid={`items.delete_button.${i + 1}`}
                         >
                           🗑️
                         </button>
@@ -479,326 +1103,533 @@ export default function SettingsPage({ actor, onBack }: Props) {
         </>
       )}
 
+      {/* Race Form Modal */}
       {showRaceForm && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 100,
-            backgroundColor: "rgba(0,0,0,0.7)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
+        <Modal
+          onClose={() => setShowRaceForm(false)}
+          title={editingRace ? "Edit Race" : "New Custom Race"}
         >
-          <div
-            className="ds-card"
-            style={{
-              width: "100%",
-              maxWidth: 500,
-              maxHeight: "90vh",
-              overflow: "auto",
-              padding: 24,
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 16,
-              }}
-            >
-              <h2
-                className="font-cinzel"
-                style={{ color: "var(--ds-gold)", fontSize: 18 }}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <Field label="Race Name *">
+              <input
+                className="ds-input"
+                value={raceForm.name}
+                onChange={(e) =>
+                  setRaceForm((p) => ({ ...p, name: e.target.value }))
+                }
+              />
+            </Field>
+            <Field label="Speed (ft)">
+              <input
+                className="ds-input"
+                type="number"
+                min={0}
+                value={raceForm.speed}
+                onChange={(e) =>
+                  setRaceForm((p) => ({
+                    ...p,
+                    speed: Number.parseInt(e.target.value) || 30,
+                  }))
+                }
+              />
+            </Field>
+            <div>
+              <span
+                className="ds-label"
+                style={{ display: "block", marginBottom: 6 }}
               >
-                {editingRace ? "Edit Race" : "New Custom Race"}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowRaceForm(false)}
+                Ability Bonuses
+              </span>
+              <div
                 style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--ds-muted)",
-                  cursor: "pointer",
-                  fontSize: 20,
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, 1fr)",
+                  gap: 8,
                 }}
               >
-                ×
-              </button>
+                {(
+                  [
+                    "ab_str",
+                    "ab_dex",
+                    "ab_con",
+                    "ab_int",
+                    "ab_wis",
+                    "ab_cha",
+                  ] as const
+                ).map((key) => (
+                  <label
+                    key={key}
+                    style={{ display: "flex", flexDirection: "column", gap: 2 }}
+                  >
+                    <span
+                      style={{
+                        color: "var(--ds-muted)",
+                        fontSize: 11,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {key.replace("ab_", "")}
+                    </span>
+                    <input
+                      className="ds-input"
+                      type="number"
+                      value={raceForm[key]}
+                      onChange={(e) =>
+                        setRaceForm((p) => ({
+                          ...p,
+                          [key]: Number.parseInt(e.target.value) || 0,
+                        }))
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <label
-                style={{ display: "flex", flexDirection: "column", gap: 4 }}
-              >
-                <span className="ds-label">Race Name *</span>
-                <input
-                  className="ds-input"
-                  value={raceForm.name}
-                  onChange={(e) =>
-                    setRaceForm((p) => ({ ...p, name: e.target.value }))
-                  }
-                />
-              </label>
-              <label
-                style={{ display: "flex", flexDirection: "column", gap: 4 }}
-              >
-                <span className="ds-label">Speed (ft)</span>
-                <input
-                  className="ds-input"
-                  type="number"
-                  min={0}
-                  value={raceForm.speed}
-                  onChange={(e) =>
-                    setRaceForm((p) => ({
-                      ...p,
-                      speed: Number.parseInt(e.target.value) || 30,
-                    }))
-                  }
-                />
-              </label>
-              <label
-                style={{ display: "flex", flexDirection: "column", gap: 4 }}
-              >
-                <span className="ds-label">
-                  Ability Bonuses (e.g. +2 STR, +1 CHA)
-                </span>
-                <input
-                  className="ds-input"
-                  value={raceForm.abilityBonuses}
-                  onChange={(e) =>
-                    setRaceForm((p) => ({
-                      ...p,
-                      abilityBonuses: e.target.value,
-                    }))
-                  }
-                />
-              </label>
-              <label
-                style={{ display: "flex", flexDirection: "column", gap: 4 }}
-              >
-                <span className="ds-label">Racial Traits</span>
-                <textarea
-                  className="ds-input"
-                  value={raceForm.traits}
-                  onChange={(e) =>
-                    setRaceForm((p) => ({ ...p, traits: e.target.value }))
-                  }
-                  rows={3}
-                  style={{ resize: "vertical" }}
-                />
-              </label>
-              <label
-                style={{ display: "flex", flexDirection: "column", gap: 4 }}
-              >
-                <span className="ds-label">Description</span>
-                <textarea
-                  className="ds-input"
-                  value={raceForm.description}
-                  onChange={(e) =>
-                    setRaceForm((p) => ({ ...p, description: e.target.value }))
-                  }
-                  rows={3}
-                  style={{ resize: "vertical" }}
-                />
-              </label>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                marginTop: 20,
-                justifyContent: "flex-end",
-              }}
-            >
-              <button
-                type="button"
-                className="ds-btn-ghost"
-                onClick={() => setShowRaceForm(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="ds-btn-primary"
-                onClick={saveRace}
-                disabled={savingRace || !raceForm.name.trim()}
-                style={{ fontFamily: "Cinzel, serif" }}
-              >
-                {savingRace
-                  ? "Saving..."
-                  : editingRace
-                    ? "Save Changes"
-                    : "Add Race"}
-              </button>
-            </div>
+            <Field label="Racial Traits (one per line, optionally: Name: Description)">
+              <textarea
+                className="ds-input"
+                value={raceForm.traitsText}
+                onChange={(e) =>
+                  setRaceForm((p) => ({ ...p, traitsText: e.target.value }))
+                }
+                rows={3}
+                placeholder="Darkvision: Can see in dim light up to 60 ft.\nFey Ancestry"
+                style={{ resize: "vertical" }}
+              />
+            </Field>
+            <Field label="Description">
+              <textarea
+                className="ds-input"
+                value={raceForm.description}
+                onChange={(e) =>
+                  setRaceForm((p) => ({ ...p, description: e.target.value }))
+                }
+                rows={3}
+                style={{ resize: "vertical" }}
+              />
+            </Field>
           </div>
-        </div>
+          <ModalFooter
+            onClose={() => setShowRaceForm(false)}
+            onSave={saveRace}
+            saving={savingRace}
+            disabled={!raceForm.name.trim()}
+            label={editingRace ? "Save Changes" : "Add Race"}
+          />
+        </Modal>
       )}
 
+      {/* Class Form Modal */}
       {showClassForm && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 100,
-            backgroundColor: "rgba(0,0,0,0.7)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
+        <Modal
+          onClose={() => setShowClassForm(false)}
+          title={editingClass ? "Edit Class" : "New Custom Class"}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <Field label="Class Name *">
+              <input
+                className="ds-input"
+                value={classForm.name}
+                onChange={(e) =>
+                  setClassForm((p) => ({ ...p, name: e.target.value }))
+                }
+              />
+            </Field>
+            <Field label="Hit Die (e.g. 8 for d8)">
+              <input
+                className="ds-input"
+                type="number"
+                min={4}
+                max={20}
+                value={classForm.hitDie}
+                onChange={(e) =>
+                  setClassForm((p) => ({
+                    ...p,
+                    hitDie: Number.parseInt(e.target.value) || 8,
+                  }))
+                }
+              />
+            </Field>
+            <Field label="Proficiencies (one per line)">
+              <textarea
+                className="ds-input"
+                value={classForm.proficienciesText}
+                onChange={(e) =>
+                  setClassForm((p) => ({
+                    ...p,
+                    proficienciesText: e.target.value,
+                  }))
+                }
+                rows={3}
+                placeholder="Light Armor\nSimple Weapons\nSaving Throws: Dexterity"
+                style={{ resize: "vertical" }}
+              />
+            </Field>
+            <Field label="Class Features (one per line, optionally: Name: Description)">
+              <textarea
+                className="ds-input"
+                value={classForm.featuresText}
+                onChange={(e) =>
+                  setClassForm((p) => ({ ...p, featuresText: e.target.value }))
+                }
+                rows={4}
+                placeholder="Sneak Attack: Extra damage when you have advantage\nCunning Action"
+                style={{ resize: "vertical" }}
+              />
+            </Field>
+            <Field label="Description">
+              <textarea
+                className="ds-input"
+                value={classForm.description}
+                onChange={(e) =>
+                  setClassForm((p) => ({ ...p, description: e.target.value }))
+                }
+                rows={3}
+                style={{ resize: "vertical" }}
+              />
+            </Field>
+          </div>
+          <ModalFooter
+            onClose={() => setShowClassForm(false)}
+            onSave={saveClass}
+            saving={savingClass}
+            disabled={!classForm.name.trim()}
+            label={editingClass ? "Save Changes" : "Add Class"}
+          />
+        </Modal>
+      )}
+
+      {/* Custom Spell Form Modal */}
+      {showSpellForm && (
+        <Modal
+          onClose={() => setShowSpellForm(false)}
+          title={editingSpell ? "Edit Custom Spell" : "New Custom Spell"}
         >
           <div
-            className="ds-card"
-            style={{
-              width: "100%",
-              maxWidth: 500,
-              maxHeight: "90vh",
-              overflow: "auto",
-              padding: 24,
-            }}
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 16,
-              }}
-            >
-              <h2
-                className="font-cinzel"
-                style={{ color: "var(--ds-gold)", fontSize: 18 }}
-              >
-                {editingClass ? "Edit Class" : "New Custom Class"}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setShowClassForm(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--ds-muted)",
-                  cursor: "pointer",
-                  fontSize: 20,
-                }}
-              >
-                ×
-              </button>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <Field label="Spell Name *">
+                <input
+                  className="ds-input"
+                  value={spellForm.name}
+                  onChange={(e) =>
+                    setSpellForm((p) => ({ ...p, name: e.target.value }))
+                  }
+                  placeholder="e.g. Arcane Bolt"
+                />
+              </Field>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <label
-                style={{ display: "flex", flexDirection: "column", gap: 4 }}
+            <Field label="Level (0 = Cantrip)">
+              <input
+                className="ds-input"
+                type="number"
+                min={0}
+                max={9}
+                value={spellForm.level}
+                onChange={(e) =>
+                  setSpellForm((p) => ({
+                    ...p,
+                    level: Number.parseInt(e.target.value) || 0,
+                  }))
+                }
+              />
+            </Field>
+            <Field label="School">
+              <select
+                className="ds-input"
+                value={spellForm.school}
+                onChange={(e) =>
+                  setSpellForm((p) => ({ ...p, school: e.target.value }))
+                }
               >
-                <span className="ds-label">Class Name *</span>
+                {SPELL_SCHOOLS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Casting Time">
+              <input
+                className="ds-input"
+                value={spellForm.castingTime}
+                onChange={(e) =>
+                  setSpellForm((p) => ({ ...p, castingTime: e.target.value }))
+                }
+              />
+            </Field>
+            <Field label="Range">
+              <input
+                className="ds-input"
+                value={spellForm.range}
+                onChange={(e) =>
+                  setSpellForm((p) => ({ ...p, range: e.target.value }))
+                }
+              />
+            </Field>
+            <Field label="Components">
+              <input
+                className="ds-input"
+                value={spellForm.components}
+                onChange={(e) =>
+                  setSpellForm((p) => ({ ...p, components: e.target.value }))
+                }
+              />
+            </Field>
+            <Field label="Duration">
+              <input
+                className="ds-input"
+                value={spellForm.duration}
+                onChange={(e) =>
+                  setSpellForm((p) => ({ ...p, duration: e.target.value }))
+                }
+              />
+            </Field>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <Field label="Damage / Effect">
                 <input
                   className="ds-input"
-                  value={classForm.name}
+                  value={spellForm.damageEffect}
                   onChange={(e) =>
-                    setClassForm((p) => ({ ...p, name: e.target.value }))
-                  }
-                />
-              </label>
-              <label
-                style={{ display: "flex", flexDirection: "column", gap: 4 }}
-              >
-                <span className="ds-label">Hit Die (e.g. 8 for d8)</span>
-                <input
-                  className="ds-input"
-                  type="number"
-                  min={4}
-                  max={20}
-                  value={classForm.hitDie}
-                  onChange={(e) =>
-                    setClassForm((p) => ({
+                    setSpellForm((p) => ({
                       ...p,
-                      hitDie: Number.parseInt(e.target.value) || 8,
+                      damageEffect: e.target.value,
                     }))
                   }
                 />
-              </label>
-              <label
-                style={{ display: "flex", flexDirection: "column", gap: 4 }}
-              >
-                <span className="ds-label">Proficiencies</span>
+              </Field>
+            </div>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <Field label="Description">
                 <textarea
                   className="ds-input"
-                  value={classForm.proficiencies}
+                  value={spellForm.description}
                   onChange={(e) =>
-                    setClassForm((p) => ({
-                      ...p,
-                      proficiencies: e.target.value,
-                    }))
-                  }
-                  rows={2}
-                  style={{ resize: "vertical" }}
-                />
-              </label>
-              <label
-                style={{ display: "flex", flexDirection: "column", gap: 4 }}
-              >
-                <span className="ds-label">Class Features</span>
-                <textarea
-                  className="ds-input"
-                  value={classForm.features}
-                  onChange={(e) =>
-                    setClassForm((p) => ({ ...p, features: e.target.value }))
-                  }
-                  rows={4}
-                  style={{ resize: "vertical" }}
-                />
-              </label>
-              <label
-                style={{ display: "flex", flexDirection: "column", gap: 4 }}
-              >
-                <span className="ds-label">Description</span>
-                <textarea
-                  className="ds-input"
-                  value={classForm.description}
-                  onChange={(e) =>
-                    setClassForm((p) => ({ ...p, description: e.target.value }))
+                    setSpellForm((p) => ({ ...p, description: e.target.value }))
                   }
                   rows={3}
                   style={{ resize: "vertical" }}
                 />
-              </label>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                marginTop: 20,
-                justifyContent: "flex-end",
-              }}
-            >
-              <button
-                type="button"
-                className="ds-btn-ghost"
-                onClick={() => setShowClassForm(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="ds-btn-primary"
-                onClick={saveClass}
-                disabled={savingClass || !classForm.name.trim()}
-                style={{ fontFamily: "Cinzel, serif" }}
-              >
-                {savingClass
-                  ? "Saving..."
-                  : editingClass
-                    ? "Save Changes"
-                    : "Add Class"}
-              </button>
+              </Field>
             </div>
           </div>
-        </div>
+          <ModalFooter
+            onClose={() => setShowSpellForm(false)}
+            onSave={saveSpell}
+            saving={savingSpell}
+            disabled={!spellForm.name.trim()}
+            label={editingSpell ? "Save Changes" : "Add Spell"}
+          />
+        </Modal>
       )}
+
+      {/* Custom Item Form Modal */}
+      {showItemForm && (
+        <Modal
+          onClose={() => setShowItemForm(false)}
+          title={editingItem ? "Edit Custom Item" : "New Custom Item"}
+        >
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
+          >
+            <div style={{ gridColumn: "1 / -1" }}>
+              <Field label="Item Name *">
+                <input
+                  className="ds-input"
+                  value={itemForm.name}
+                  onChange={(e) =>
+                    setItemForm((p) => ({ ...p, name: e.target.value }))
+                  }
+                  placeholder="e.g. Vorpal Sword"
+                />
+              </Field>
+            </div>
+            <Field label="Item Type">
+              <select
+                className="ds-input"
+                value={itemForm.itemType}
+                onChange={(e) =>
+                  setItemForm((p) => ({ ...p, itemType: e.target.value }))
+                }
+              >
+                {ITEM_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Rarity">
+              <select
+                className="ds-input"
+                value={itemForm.rarity}
+                onChange={(e) =>
+                  setItemForm((p) => ({ ...p, rarity: e.target.value }))
+                }
+              >
+                {RARITIES.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Weight">
+              <input
+                className="ds-input"
+                value={itemForm.weight}
+                onChange={(e) =>
+                  setItemForm((p) => ({ ...p, weight: e.target.value }))
+                }
+                placeholder="e.g. 3 lbs"
+              />
+            </Field>
+            <Field label="Value">
+              <input
+                className="ds-input"
+                value={itemForm.value}
+                onChange={(e) =>
+                  setItemForm((p) => ({ ...p, value: e.target.value }))
+                }
+                placeholder="e.g. 1500 gp"
+              />
+            </Field>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <Field label="Description">
+                <textarea
+                  className="ds-input"
+                  value={itemForm.description}
+                  onChange={(e) =>
+                    setItemForm((p) => ({ ...p, description: e.target.value }))
+                  }
+                  rows={3}
+                  style={{ resize: "vertical" }}
+                />
+              </Field>
+            </div>
+          </div>
+          <ModalFooter
+            onClose={() => setShowItemForm(false)}
+            onSave={saveItem}
+            saving={savingItem}
+            disabled={!itemForm.name.trim()}
+            label={editingItem ? "Save Changes" : "Add Item"}
+          />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function Modal({
+  children,
+  onClose,
+  title,
+}: { children: React.ReactNode; onClose: () => void; title: string }) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 100,
+        backgroundColor: "rgba(0,0,0,0.7)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        className="ds-card"
+        style={{
+          width: "100%",
+          maxWidth: 540,
+          maxHeight: "90vh",
+          overflow: "auto",
+          padding: 24,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 16,
+          }}
+        >
+          <h2
+            className="font-cinzel"
+            style={{ color: "var(--ds-gold)", fontSize: 18 }}
+          >
+            {title}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              background: "none",
+              border: "none",
+              color: "var(--ds-muted)",
+              cursor: "pointer",
+              fontSize: 20,
+            }}
+          >
+            ×
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span className="ds-label">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function ModalFooter({
+  onClose,
+  onSave,
+  saving,
+  disabled,
+  label,
+}: {
+  onClose: () => void;
+  onSave: () => void;
+  saving: boolean;
+  disabled: boolean;
+  label: string;
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        gap: 8,
+        marginTop: 20,
+        justifyContent: "flex-end",
+      }}
+    >
+      <button type="button" className="ds-btn-ghost" onClick={onClose}>
+        Cancel
+      </button>
+      <button
+        type="button"
+        className="ds-btn-primary"
+        onClick={onSave}
+        disabled={saving || disabled}
+        style={{ fontFamily: "Cinzel, serif" }}
+      >
+        {saving ? "Saving..." : label}
+      </button>
     </div>
   );
 }
