@@ -2,6 +2,7 @@ import type { Principal } from "@icp-sdk/core/principal";
 import { useCallback, useEffect, useState } from "react";
 import type {
   Abilities,
+  CustomAbility,
   CustomClass,
   CustomItem,
   CustomRace,
@@ -19,6 +20,7 @@ type RaceWithId = { id: bigint } & CustomRace;
 type ClassWithId = { id: bigint } & CustomClass;
 type SpellWithId = { id: bigint } & CustomSpell;
 type ItemWithId = { id: bigint } & CustomItem;
+type AbilityWithId = { id: bigint } & CustomAbility;
 
 // Form state uses simple primitives for editing; we convert on save
 interface RaceFormState {
@@ -119,7 +121,23 @@ const RARITIES = [
   "Artifact",
 ];
 
-type Section = "general" | "races" | "classes" | "spells" | "items";
+const ABILITY_TYPES = ["Passive", "Active", "Reaction"];
+const RECHARGE_OPTIONS = ["", "Short Rest", "Long Rest", "Daily"];
+const EMPTY_ABILITY = {
+  name: "",
+  description: "",
+  abilityType: "Active",
+  uses: 0,
+  rechargeOn: "",
+};
+
+type Section =
+  | "general"
+  | "races"
+  | "classes"
+  | "spells"
+  | "items"
+  | "abilities";
 
 // Helpers: convert between form state and backend types
 function abilitiesToForm(ab: Abilities) {
@@ -194,6 +212,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
   const [classes, setClasses] = useState<ClassWithId[]>([]);
   const [customSpells, setCustomSpells] = useState<SpellWithId[]>([]);
   const [customItems, setCustomItems] = useState<ItemWithId[]>([]);
+  const [customAbilities, setCustomAbilities] = useState<AbilityWithId[]>([]);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<Section>("general");
 
@@ -223,9 +242,17 @@ export default function SettingsPage({ actor, onBack }: Props) {
   const [itemForm, setItemForm] = useState({ ...EMPTY_ITEM });
   const [savingItem, setSavingItem] = useState(false);
 
+  // Custom ability form
+  const [showAbilityForm, setShowAbilityForm] = useState(false);
+  const [editingAbility, setEditingAbility] = useState<AbilityWithId | null>(
+    null,
+  );
+  const [abilityForm, setAbilityForm] = useState({ ...EMPTY_ABILITY });
+  const [savingAbility, setSavingAbility] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
-    const [settings, raceData, classData, spellData, itemData] =
+    const [settings, raceData, classData, spellData, itemData, abilityData] =
       await Promise.all([
         actor.getSettings(),
         actor.getAllRaces() as unknown as Promise<[bigint, CustomRace][]>,
@@ -234,6 +261,9 @@ export default function SettingsPage({ actor, onBack }: Props) {
           [bigint, CustomSpell][]
         >,
         actor.getAllCustomItems() as unknown as Promise<[bigint, CustomItem][]>,
+        actor.getAllCustomAbilities() as unknown as Promise<
+          [bigint, CustomAbility][]
+        >,
       ]);
     setMaxLevel(Number(settings.maxLevel));
     setSavedMaxLevel(Number(settings.maxLevel));
@@ -241,6 +271,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
     setClasses(classData.map(([id, c]) => ({ id, ...c })));
     setCustomSpells(spellData.map(([id, s]) => ({ id, ...s })));
     setCustomItems(itemData.map(([id, i]) => ({ id, ...i })));
+    setCustomAbilities(abilityData.map(([id, a]) => ({ id, ...a })));
     setLoading(false);
   }, [actor]);
 
@@ -424,12 +455,53 @@ export default function SettingsPage({ actor, onBack }: Props) {
     await load();
   };
 
+  // Custom Ability CRUD
+  const openNewAbility = () => {
+    setEditingAbility(null);
+    setAbilityForm({ ...EMPTY_ABILITY });
+    setShowAbilityForm(true);
+  };
+  const openEditAbility = (a: AbilityWithId) => {
+    setEditingAbility(a);
+    setAbilityForm({
+      name: a.name,
+      description: a.description,
+      abilityType: a.abilityType,
+      uses: Number(a.uses),
+      rechargeOn: a.rechargeOn,
+    });
+    setShowAbilityForm(true);
+  };
+  const saveAbility = async () => {
+    setSavingAbility(true);
+    const ability: CustomAbility = {
+      name: abilityForm.name,
+      description: abilityForm.description,
+      abilityType: abilityForm.abilityType,
+      uses: BigInt(abilityForm.uses),
+      rechargeOn: abilityForm.rechargeOn,
+      owner: {} as unknown as Principal,
+    };
+    if (editingAbility)
+      await actor.updateCustomAbility(editingAbility.id, ability);
+    else await actor.addCustomAbility(ability);
+    await load();
+    setShowAbilityForm(false);
+    setSavingAbility(false);
+  };
+  const deleteAbility = async (id: bigint) => {
+    if (!confirm("Delete this custom ability?")) return;
+    await actor.deleteCustomAbility(id);
+    await load();
+  };
+
   const tabs: { id: Section; label: string }[] = [
     { id: "general", label: "General" },
     { id: "races", label: `Custom Races (${races.length})` },
     { id: "classes", label: `Custom Classes (${classes.length})` },
     { id: "spells", label: `Custom Spells (${customSpells.length})` },
     { id: "items", label: `Custom Items (${customItems.length})` },
+    { id: "abilities", label: `Custom Abilities (${customAbilities.length})` },
   ];
 
   const tabStyle = (id: Section) => ({
@@ -1299,6 +1371,157 @@ export default function SettingsPage({ actor, onBack }: Props) {
         </Modal>
       )}
 
+      {section === "abilities" && (
+        <div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 16,
+            }}
+          >
+            <p style={{ color: "var(--ds-muted)", fontSize: 14 }}>
+              Your homebrew ability library. Use "Library" in the Abilities tab
+              to add these to a character.
+            </p>
+            <button
+              type="button"
+              className="ds-btn-primary"
+              onClick={openNewAbility}
+              style={{ fontFamily: "Cinzel, serif", fontSize: 13 }}
+              data-ocid="abilities.primary_button"
+            >
+              + Add Ability
+            </button>
+          </div>
+          {customAbilities.length === 0 ? (
+            <p
+              style={{
+                color: "var(--ds-muted)",
+                textAlign: "center",
+                marginTop: 32,
+              }}
+              data-ocid="abilities.empty_state"
+            >
+              No custom abilities yet. Create your homebrew abilities here!
+            </p>
+          ) : (
+            customAbilities.map((ability, i) => (
+              <div
+                key={ability.id.toString()}
+                className="ds-card2"
+                style={{ padding: 14, marginBottom: 8 }}
+                data-ocid={`abilities.item.${i + 1}`}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        marginBottom: 4,
+                      }}
+                    >
+                      <span
+                        style={{ color: "var(--ds-text)", fontWeight: 600 }}
+                      >
+                        {ability.name}
+                      </span>
+                      <span
+                        style={{
+                          color: "#fff",
+                          fontSize: 10,
+                          backgroundColor:
+                            ability.abilityType === "Active"
+                              ? "#c97d3a"
+                              : ability.abilityType === "Reaction"
+                                ? "#7c5cbf"
+                                : "#4a9eca",
+                          padding: "2px 7px",
+                          borderRadius: 10,
+                          textTransform: "uppercase",
+                          fontWeight: 700,
+                          letterSpacing: "0.05em",
+                        }}
+                      >
+                        {ability.abilityType}
+                      </span>
+                      {ability.uses > 0n && (
+                        <span
+                          style={{
+                            color: "var(--ds-gold)",
+                            fontSize: 11,
+                            backgroundColor: "rgba(201,163,90,0.1)",
+                            padding: "2px 6px",
+                            borderRadius: 10,
+                          }}
+                        >
+                          {ability.uses.toString()} uses
+                        </span>
+                      )}
+                      {ability.rechargeOn && (
+                        <span
+                          style={{
+                            color: "var(--ds-muted)",
+                            fontSize: 11,
+                            border: "1px solid var(--ds-border)",
+                            borderRadius: 6,
+                            padding: "1px 6px",
+                          }}
+                        >
+                          ↺ {ability.rechargeOn}
+                        </span>
+                      )}
+                    </div>
+                    {ability.description && (
+                      <p
+                        style={{
+                          color: "var(--ds-muted)",
+                          fontSize: 13,
+                          margin: 0,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {ability.description}
+                      </p>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginLeft: 12 }}>
+                    <button
+                      type="button"
+                      className="ds-btn-ghost"
+                      style={{ fontSize: 12 }}
+                      onClick={() => openEditAbility(ability)}
+                      data-ocid={`abilities.edit_button.${i + 1}`}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="ds-btn-ghost"
+                      style={{ fontSize: 12, color: "#c0392b" }}
+                      onClick={() => deleteAbility(ability.id)}
+                      data-ocid={`abilities.delete_button.${i + 1}`}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
       {/* Custom Spell Form Modal */}
       {showSpellForm && (
         <Modal
@@ -1515,6 +1738,90 @@ export default function SettingsPage({ actor, onBack }: Props) {
             saving={savingItem}
             disabled={!itemForm.name.trim()}
             label={editingItem ? "Save Changes" : "Add Item"}
+          />
+        </Modal>
+      )}
+
+      {/* Custom Ability Form Modal */}
+      {showAbilityForm && (
+        <Modal
+          onClose={() => setShowAbilityForm(false)}
+          title={editingAbility ? "Edit Custom Ability" : "New Custom Ability"}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <Field label="Ability Name *">
+              <input
+                className="ds-input"
+                value={abilityForm.name}
+                onChange={(e) =>
+                  setAbilityForm((p) => ({ ...p, name: e.target.value }))
+                }
+                placeholder="e.g. Second Wind"
+              />
+            </Field>
+            <Field label="Type">
+              <select
+                className="ds-input"
+                value={abilityForm.abilityType}
+                onChange={(e) =>
+                  setAbilityForm((p) => ({ ...p, abilityType: e.target.value }))
+                }
+              >
+                {ABILITY_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Uses (0 = unlimited)">
+              <input
+                className="ds-input"
+                type="number"
+                min={0}
+                value={abilityForm.uses}
+                onChange={(e) =>
+                  setAbilityForm((p) => ({
+                    ...p,
+                    uses: Math.max(0, Number.parseInt(e.target.value) || 0),
+                  }))
+                }
+              />
+            </Field>
+            <Field label="Recharge On">
+              <select
+                className="ds-input"
+                value={abilityForm.rechargeOn}
+                onChange={(e) =>
+                  setAbilityForm((p) => ({ ...p, rechargeOn: e.target.value }))
+                }
+              >
+                {RECHARGE_OPTIONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r || "None"}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Description">
+              <textarea
+                className="ds-input"
+                value={abilityForm.description}
+                onChange={(e) =>
+                  setAbilityForm((p) => ({ ...p, description: e.target.value }))
+                }
+                rows={3}
+                style={{ resize: "vertical" }}
+                placeholder="Describe what this ability does..."
+              />
+            </Field>
+          </div>
+          <ModalFooter
+            onClose={() => setShowAbilityForm(false)}
+            onSave={saveAbility}
+            saving={savingAbility}
+            disabled={!abilityForm.name.trim()}
+            label={editingAbility ? "Save Changes" : "Add Ability"}
           />
         </Modal>
       )}

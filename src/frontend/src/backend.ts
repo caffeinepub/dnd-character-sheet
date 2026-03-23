@@ -90,6 +90,14 @@ export class ExternalBlob {
     }
 }
 export type CharacterId = bigint;
+export interface Abilities {
+    cha: bigint;
+    con: bigint;
+    dex: bigint;
+    int: bigint;
+    str: bigint;
+    wis: bigint;
+}
 export interface Skills {
     perception: boolean;
     animalHandling: boolean;
@@ -98,6 +106,7 @@ export interface Skills {
     deception: boolean;
     sleightOfHand: boolean;
     acrobatics: boolean;
+    description: string;
     athletics: boolean;
     history: boolean;
     persuasion: boolean;
@@ -175,8 +184,31 @@ export interface InventoryItem {
 export interface Settings {
     maxLevel: bigint;
 }
+export interface CustomItem {
+    weight: string;
+    value: string;
+    owner: Principal;
+    name: string;
+    description: string;
+    itemType: string;
+    rarity: string;
+}
 export type SpellId = bigint;
-export type ClassId = bigint;
+export interface CustomSpell {
+    duration: string;
+    owner: Principal;
+    school: string;
+    name: string;
+    damageEffect: string;
+    components: string;
+    description: string;
+    level: bigint;
+    range: string;
+    castingTime: string;
+}
+export type CustomAbilityId = bigint;
+export type CharacterAbilityId = bigint;
+export type CustomSpellId = bigint;
 export interface CustomRace {
     abilityBonuses: Abilities;
     traits: Array<Trait>;
@@ -184,39 +216,27 @@ export interface CustomRace {
     description: string;
     speed: bigint;
 }
-export interface Abilities {
-    cha: bigint;
-    con: bigint;
-    dex: bigint;
-    int: bigint;
-    str: bigint;
-    wis: bigint;
+export type CustomItemId = bigint;
+export type ClassId = bigint;
+export interface CustomAbility {
+    owner: Principal;
+    name: string;
+    uses: bigint;
+    description: string;
+    abilityType: string;
+    rechargeOn: string;
 }
 export interface UserProfile {
     name: string;
 }
-export type CustomSpellId = bigint;
-export type CustomItemId = bigint;
-export interface CustomSpell {
+export interface CharacterAbility {
+    usesRemaining: bigint;
     name: string;
-    level: bigint;
-    school: string;
-    castingTime: string;
-    range: string;
-    components: string;
-    duration: string;
-    damageEffect: string;
+    uses: bigint;
     description: string;
-    owner: Principal;
-}
-export interface CustomItem {
-    name: string;
-    description: string;
-    weight: string;
-    value: string;
-    itemType: string;
-    rarity: string;
-    owner: Principal;
+    abilityType: string;
+    rechargeOn: string;
+    characterId: CharacterId;
 }
 export enum UserRole {
     admin = "admin",
@@ -225,28 +245,36 @@ export enum UserRole {
 }
 export interface backendInterface {
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
+    addCharacterAbility(ability: CharacterAbility): Promise<CharacterAbilityId>;
     addClass(cls: CustomClass): Promise<ClassId>;
+    addCustomAbility(ability: CustomAbility): Promise<CustomAbilityId>;
+    addCustomItem(item: CustomItem): Promise<CustomItemId>;
+    addCustomSpell(spell: CustomSpell): Promise<CustomSpellId>;
     addItem(item: InventoryItem): Promise<InventoryItemId>;
     addRace(race: CustomRace): Promise<RaceId>;
     addSpell(spell: Spell): Promise<SpellId>;
     addTrait(trait: Trait): Promise<TraitId>;
-    addCustomSpell(spell: CustomSpell): Promise<CustomSpellId>;
-    addCustomItem(item: CustomItem): Promise<CustomItemId>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createCharacter(char: Character): Promise<CharacterId>;
     deleteCharacter(id: CharacterId): Promise<void>;
+    deleteCharacterAbility(id: CharacterAbilityId): Promise<void>;
     deleteClass(id: ClassId): Promise<void>;
+    deleteCustomAbility(id: CustomAbilityId): Promise<void>;
+    deleteCustomItem(id: CustomItemId): Promise<void>;
+    deleteCustomSpell(id: CustomSpellId): Promise<void>;
     deleteItem(id: InventoryItemId): Promise<void>;
     deleteRace(id: RaceId): Promise<void>;
     deleteSpell(id: SpellId): Promise<void>;
     deleteTrait(id: TraitId): Promise<void>;
-    deleteCustomSpell(id: CustomSpellId): Promise<void>;
-    deleteCustomItem(id: CustomItemId): Promise<void>;
+    getAbilitiesByCharacter(characterId: CharacterId): Promise<Array<[CharacterAbilityId, CharacterAbility]>>;
     getAllCharacters(): Promise<Array<[CharacterId, Character]>>;
+    getAllCharactersCount(arg0: {
+    }): Promise<bigint>;
     getAllClasses(): Promise<Array<[ClassId, CustomClass]>>;
-    getAllRaces(): Promise<Array<[RaceId, CustomRace]>>;
-    getAllCustomSpells(): Promise<Array<[CustomSpellId, CustomSpell]>>;
+    getAllCustomAbilities(): Promise<Array<[CustomAbilityId, CustomAbility]>>;
     getAllCustomItems(): Promise<Array<[CustomItemId, CustomItem]>>;
+    getAllCustomSpells(): Promise<Array<[CustomSpellId, CustomSpell]>>;
+    getAllRaces(): Promise<Array<[RaceId, CustomRace]>>;
     getAllUserProfiles(): Promise<Array<[Principal, UserProfile]>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
@@ -259,14 +287,16 @@ export interface backendInterface {
     isCallerAdmin(): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     updateCharacter(id: CharacterId, char: Character): Promise<void>;
+    updateCharacterAbility(id: CharacterAbilityId, ability: CharacterAbility): Promise<void>;
     updateClass(id: ClassId, cls: CustomClass): Promise<void>;
+    updateCustomAbility(id: CustomAbilityId, ability: CustomAbility): Promise<void>;
+    updateCustomItem(id: CustomItemId, item: CustomItem): Promise<void>;
+    updateCustomSpell(id: CustomSpellId, spell: CustomSpell): Promise<void>;
     updateItem(id: InventoryItemId, item: InventoryItem): Promise<void>;
     updateRace(id: RaceId, race: CustomRace): Promise<void>;
     updateSettings(newSettings: Settings): Promise<void>;
     updateSpell(id: SpellId, spell: Spell): Promise<void>;
     updateTrait(id: TraitId, trait: Trait): Promise<void>;
-    updateCustomSpell(id: CustomSpellId, spell: CustomSpell): Promise<void>;
-    updateCustomItem(id: CustomItemId, item: CustomItem): Promise<void>;
 }
 import type { Character as _Character, UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -285,6 +315,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async addCharacterAbility(arg0: CharacterAbility): Promise<CharacterAbilityId> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addCharacterAbility(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addCharacterAbility(arg0);
+            return result;
+        }
+    }
     async addClass(arg0: CustomClass): Promise<ClassId> {
         if (this.processError) {
             try {
@@ -296,6 +340,48 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.addClass(arg0);
+            return result;
+        }
+    }
+    async addCustomAbility(arg0: CustomAbility): Promise<CustomAbilityId> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addCustomAbility(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addCustomAbility(arg0);
+            return result;
+        }
+    }
+    async addCustomItem(arg0: CustomItem): Promise<CustomItemId> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addCustomItem(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addCustomItem(arg0);
+            return result;
+        }
+    }
+    async addCustomSpell(arg0: CustomSpell): Promise<CustomSpellId> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addCustomSpell(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addCustomSpell(arg0);
             return result;
         }
     }
@@ -355,34 +441,6 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async addCustomSpell(arg0: CustomSpell): Promise<CustomSpellId> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.addCustomSpell(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.addCustomSpell(arg0);
-            return result;
-        }
-    }
-    async addCustomItem(arg0: CustomItem): Promise<CustomItemId> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.addCustomItem(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.addCustomItem(arg0);
-            return result;
-        }
-    }
     async assignCallerUserRole(arg0: Principal, arg1: UserRole): Promise<void> {
         if (this.processError) {
             try {
@@ -425,6 +483,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async deleteCharacterAbility(arg0: CharacterAbilityId): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteCharacterAbility(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteCharacterAbility(arg0);
+            return result;
+        }
+    }
     async deleteClass(arg0: ClassId): Promise<void> {
         if (this.processError) {
             try {
@@ -436,6 +508,48 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.deleteClass(arg0);
+            return result;
+        }
+    }
+    async deleteCustomAbility(arg0: CustomAbilityId): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteCustomAbility(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteCustomAbility(arg0);
+            return result;
+        }
+    }
+    async deleteCustomItem(arg0: CustomItemId): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteCustomItem(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteCustomItem(arg0);
+            return result;
+        }
+    }
+    async deleteCustomSpell(arg0: CustomSpellId): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteCustomSpell(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteCustomSpell(arg0);
             return result;
         }
     }
@@ -495,31 +609,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async deleteCustomSpell(arg0: CustomSpellId): Promise<void> {
+    async getAbilitiesByCharacter(arg0: CharacterId): Promise<Array<[CharacterAbilityId, CharacterAbility]>> {
         if (this.processError) {
             try {
-                const result = await this.actor.deleteCustomSpell(arg0);
+                const result = await this.actor.getAbilitiesByCharacter(arg0);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.deleteCustomSpell(arg0);
-            return result;
-        }
-    }
-    async deleteCustomItem(arg0: CustomItemId): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.deleteCustomItem(arg0);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.deleteCustomItem(arg0);
+            const result = await this.actor.getAbilitiesByCharacter(arg0);
             return result;
         }
     }
@@ -537,6 +637,21 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async getAllCharactersCount(arg0: {
+    }): Promise<bigint> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllCharactersCount(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllCharactersCount(arg0);
+            return result;
+        }
+    }
     async getAllClasses(): Promise<Array<[ClassId, CustomClass]>> {
         if (this.processError) {
             try {
@@ -551,17 +666,31 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async getAllRaces(): Promise<Array<[RaceId, CustomRace]>> {
+    async getAllCustomAbilities(): Promise<Array<[CustomAbilityId, CustomAbility]>> {
         if (this.processError) {
             try {
-                const result = await this.actor.getAllRaces();
+                const result = await this.actor.getAllCustomAbilities();
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.getAllRaces();
+            const result = await this.actor.getAllCustomAbilities();
+            return result;
+        }
+    }
+    async getAllCustomItems(): Promise<Array<[CustomItemId, CustomItem]>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllCustomItems();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllCustomItems();
             return result;
         }
     }
@@ -579,17 +708,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async getAllCustomItems(): Promise<Array<[CustomItemId, CustomItem]>> {
+    async getAllRaces(): Promise<Array<[RaceId, CustomRace]>> {
         if (this.processError) {
             try {
-                const result = await this.actor.getAllCustomItems();
+                const result = await this.actor.getAllRaces();
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.getAllCustomItems();
+            const result = await this.actor.getAllRaces();
             return result;
         }
     }
@@ -761,6 +890,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async updateCharacterAbility(arg0: CharacterAbilityId, arg1: CharacterAbility): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateCharacterAbility(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateCharacterAbility(arg0, arg1);
+            return result;
+        }
+    }
     async updateClass(arg0: ClassId, arg1: CustomClass): Promise<void> {
         if (this.processError) {
             try {
@@ -772,6 +915,48 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.updateClass(arg0, arg1);
+            return result;
+        }
+    }
+    async updateCustomAbility(arg0: CustomAbilityId, arg1: CustomAbility): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateCustomAbility(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateCustomAbility(arg0, arg1);
+            return result;
+        }
+    }
+    async updateCustomItem(arg0: CustomItemId, arg1: CustomItem): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateCustomItem(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateCustomItem(arg0, arg1);
+            return result;
+        }
+    }
+    async updateCustomSpell(arg0: CustomSpellId, arg1: CustomSpell): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateCustomSpell(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateCustomSpell(arg0, arg1);
             return result;
         }
     }
@@ -842,34 +1027,6 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.updateTrait(arg0, arg1);
-            return result;
-        }
-    }
-    async updateCustomSpell(arg0: CustomSpellId, arg1: CustomSpell): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.updateCustomSpell(arg0, arg1);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.updateCustomSpell(arg0, arg1);
-            return result;
-        }
-    }
-    async updateCustomItem(arg0: CustomItemId, arg1: CustomItem): Promise<void> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.updateCustomItem(arg0, arg1);
-                return result;
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.updateCustomItem(arg0, arg1);
             return result;
         }
     }

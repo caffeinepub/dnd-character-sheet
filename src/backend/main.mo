@@ -1,12 +1,16 @@
 import Map "mo:core/Map";
+import List "mo:core/List";
 import Array "mo:core/Array";
 import Nat "mo:core/Nat";
 import Principal "mo:core/Principal";
 import Runtime "mo:core/Runtime";
+import Migration "migration";
 
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
 
+// Specify the data migration function in with-clause
+(with migration = Migration.run)
 actor {
   // Types
   public type CharacterId = Nat;
@@ -64,6 +68,7 @@ actor {
     sleightOfHand : Bool;
     stealth : Bool;
     survival : Bool;
+    description : Text; // default to "" for new clients
   };
 
   public type Spell = {
@@ -151,10 +156,33 @@ actor {
     name : Text;
   };
 
+  public type CustomAbilityId = Nat;
+  public type CharacterAbilityId = Nat;
+
+  public type CustomAbility = {
+    name : Text;
+    description : Text;
+    abilityType : Text;
+    uses : Nat;
+    rechargeOn : Text;
+    owner : Principal;
+  };
+
+  public type CharacterAbility = {
+    characterId : CharacterId;
+    name : Text;
+    description : Text;
+    abilityType : Text;
+    uses : Nat;
+    usesRemaining : Nat;
+    rechargeOn : Text;
+  };
+
   // Initialize the user system state
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
+  // Persistent variables
   var nextCharacterId = 1;
   var nextSpellId = 1;
   var nextTraitId = 1;
@@ -163,6 +191,9 @@ actor {
   var nextClassId = 1;
   var nextCustomSpellId = 1;
   var nextCustomItemId = 1;
+
+  var nextCustomAbilityId = 1;
+  var nextCharacterAbilityId = 1;
 
   let characters = Map.empty<CharacterId, Character>();
   let spells = Map.empty<SpellId, Spell>();
@@ -174,6 +205,9 @@ actor {
   let customItems = Map.empty<CustomItemId, CustomItem>();
   var settings : Settings = { maxLevel = 10000 };
   let userProfiles = Map.empty<Principal, UserProfile>();
+
+  let customAbilities = Map.empty<CustomAbilityId, CustomAbility>();
+  let characterAbilities = Map.empty<CharacterAbilityId, CharacterAbility>();
 
   // Helper: verify caller is authenticated (not anonymous)
   private func requireAuth(caller : Principal) {
@@ -209,7 +243,23 @@ actor {
 
   public query ({ caller }) func getAllCharacters() : async [(CharacterId, Character)] {
     requireAuth(caller);
-    characters.toArray().filter(func((_, char)) { Principal.equal(char.owner, caller) });
+
+    let resultList = List.empty<(CharacterId, Character)>();
+    for ((id, char) in characters.entries()) {
+      if (Principal.equal(char.owner, caller)) {
+        resultList.add((id, char));
+      };
+    };
+    resultList.toArray();
+  };
+
+  public shared ({ caller }) func getAllCharactersCount({}) : async Nat {
+    requireAuth(caller);
+    var count = 0;
+    for (char in characters.values()) {
+      if (Principal.equal(char.owner, caller)) { count += 1 };
+    };
+    count;
   };
 
   public query ({ caller }) func getCharacter(id : CharacterId) : async ?Character {
@@ -267,7 +317,12 @@ actor {
     if (not verifyCharacterOwnership(caller, characterId)) {
       Runtime.trap("Unauthorized: Cannot view spells for characters you do not own");
     };
-    spells.toArray().filter(func((_, spell)) { spell.characterId == characterId });
+
+    let resultList = List.empty<(SpellId, Spell)>();
+    for ((id, spell) in spells.entries()) {
+      if (spell.characterId == characterId) { resultList.add((id, spell)) };
+    };
+    resultList.toArray();
   };
 
   public shared ({ caller }) func updateSpell(id : SpellId, spell : Spell) : async () {
@@ -313,7 +368,12 @@ actor {
     if (not verifyCharacterOwnership(caller, characterId)) {
       Runtime.trap("Unauthorized");
     };
-    traits.toArray().filter(func((_, trait)) { trait.characterId == characterId });
+
+    let resultList = List.empty<(TraitId, Trait)>();
+    for ((id, trait) in traits.entries()) {
+      if (trait.characterId == characterId) { resultList.add((id, trait)) };
+    };
+    resultList.toArray();
   };
 
   public shared ({ caller }) func updateTrait(id : TraitId, trait : Trait) : async () {
@@ -359,7 +419,12 @@ actor {
     if (not verifyCharacterOwnership(caller, characterId)) {
       Runtime.trap("Unauthorized");
     };
-    inventoryItems.toArray().filter(func((_, item)) { item.characterId == characterId });
+
+    let resultList = List.empty<(InventoryItemId, InventoryItem)>();
+    for ((id, item) in inventoryItems.entries()) {
+      if (item.characterId == characterId) { resultList.add((id, item)) };
+    };
+    resultList.toArray();
   };
 
   public shared ({ caller }) func updateItem(id : InventoryItemId, item : InventoryItem) : async () {
@@ -451,7 +516,12 @@ actor {
 
   public query ({ caller }) func getAllCustomSpells() : async [(CustomSpellId, CustomSpell)] {
     requireAuth(caller);
-    customSpells.toArray().filter(func((_, spell)) { Principal.equal(spell.owner, caller) });
+
+    let resultList = List.empty<(CustomSpellId, CustomSpell)>();
+    for ((id, spell) in customSpells.entries()) {
+      if (Principal.equal(spell.owner, caller)) { resultList.add((id, spell)) };
+    };
+    resultList.toArray();
   };
 
   public shared ({ caller }) func updateCustomSpell(id : CustomSpellId, spell : CustomSpell) : async () {
@@ -491,7 +561,12 @@ actor {
 
   public query ({ caller }) func getAllCustomItems() : async [(CustomItemId, CustomItem)] {
     requireAuth(caller);
-    customItems.toArray().filter(func((_, item)) { Principal.equal(item.owner, caller) });
+
+    let resultList = List.empty<(CustomItemId, CustomItem)>();
+    for ((id, item) in customItems.entries()) {
+      if (Principal.equal(item.owner, caller)) { resultList.add((id, item)) };
+    };
+    resultList.toArray();
   };
 
   public shared ({ caller }) func updateCustomItem(id : CustomItemId, item : CustomItem) : async () {
@@ -552,5 +627,101 @@ actor {
   public query ({ caller }) func getAllUserProfiles() : async [(Principal, UserProfile)] {
     requireAdmin(caller);
     userProfiles.toArray();
+  };
+
+  // Custom Abilities (user CRUD, owner-scoped)
+  public shared ({ caller }) func addCustomAbility(ability : CustomAbility) : async CustomAbilityId {
+    requireAuth(caller);
+    let id = nextCustomAbilityId;
+    nextCustomAbilityId += 1;
+    customAbilities.add(id, { ability with owner = caller });
+    id;
+  };
+
+  public query ({ caller }) func getAllCustomAbilities() : async [(CustomAbilityId, CustomAbility)] {
+    requireAuth(caller);
+
+    let resultList = List.empty<(CustomAbilityId, CustomAbility)>();
+    for ((id, ability) in customAbilities.entries()) {
+      if (Principal.equal(ability.owner, caller)) { resultList.add((id, ability)) };
+    };
+    resultList.toArray();
+  };
+
+  public shared ({ caller }) func updateCustomAbility(id : CustomAbilityId, ability : CustomAbility) : async () {
+    requireAuth(caller);
+    switch (customAbilities.get(id)) {
+      case (null) { Runtime.trap("Custom ability not found") };
+      case (?existing) {
+        if (not Principal.equal(existing.owner, caller) and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Cannot edit abilities you do not own");
+        };
+        customAbilities.add(id, { ability with owner = existing.owner });
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteCustomAbility(id : CustomAbilityId) : async () {
+    requireAuth(caller);
+    switch (customAbilities.get(id)) {
+      case (null) { Runtime.trap("Custom ability not found") };
+      case (?existing) {
+        if (not Principal.equal(existing.owner, caller) and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Cannot delete abilities you do not own");
+        };
+        customAbilities.remove(id);
+      };
+    };
+  };
+
+  // Character Abilities (character-scoped CRUD)
+  public shared ({ caller }) func addCharacterAbility(ability : CharacterAbility) : async CharacterAbilityId {
+    requireAuth(caller);
+    if (not verifyCharacterOwnership(caller, ability.characterId)) {
+      Runtime.trap("Unauthorized: Cannot add abilities to characters you do not own");
+    };
+    let id = nextCharacterAbilityId;
+    nextCharacterAbilityId += 1;
+    characterAbilities.add(id, ability);
+    id;
+  };
+
+  public query ({ caller }) func getAbilitiesByCharacter(characterId : CharacterId) : async [(CharacterAbilityId, CharacterAbility)] {
+    requireAuth(caller);
+    if (not verifyCharacterOwnership(caller, characterId)) {
+      Runtime.trap("Unauthorized: Cannot view abilities for characters you do not own");
+    };
+
+    let resultList = List.empty<(CharacterAbilityId, CharacterAbility)>();
+    for ((id, ability) in characterAbilities.entries()) {
+      if (ability.characterId == characterId) { resultList.add((id, ability)) };
+    };
+    resultList.toArray();
+  };
+
+  public shared ({ caller }) func updateCharacterAbility(id : CharacterAbilityId, ability : CharacterAbility) : async () {
+    requireAuth(caller);
+    switch (characterAbilities.get(id)) {
+      case (null) { Runtime.trap("Character ability not found") };
+      case (?existing) {
+        if (not verifyCharacterOwnership(caller, existing.characterId)) {
+          Runtime.trap("Unauthorized: Cannot modify abilities you do not own");
+        };
+        characterAbilities.add(id, ability);
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteCharacterAbility(id : CharacterAbilityId) : async () {
+    requireAuth(caller);
+    switch (characterAbilities.get(id)) {
+      case (null) { Runtime.trap("Character ability not found") };
+      case (?ability) {
+        if (not verifyCharacterOwnership(caller, ability.characterId)) {
+          Runtime.trap("Unauthorized: Cannot delete abilities you do not own");
+        };
+        characterAbilities.remove(id);
+      };
+    };
   };
 };

@@ -44,8 +44,27 @@ export interface Character {
   'alignment' : string,
   'initiative' : bigint,
 }
+export interface CharacterAbility {
+  'usesRemaining' : bigint,
+  'name' : string,
+  'uses' : bigint,
+  'description' : string,
+  'abilityType' : string,
+  'rechargeOn' : string,
+  'characterId' : CharacterId,
+}
+export type CharacterAbilityId = bigint;
 export type CharacterId = bigint;
 export type ClassId = bigint;
+export interface CustomAbility {
+  'owner' : Principal,
+  'name' : string,
+  'uses' : bigint,
+  'description' : string,
+  'abilityType' : string,
+  'rechargeOn' : string,
+}
+export type CustomAbilityId = bigint;
 export interface CustomClass {
   'features' : Array<Trait>,
   'name' : string,
@@ -53,6 +72,16 @@ export interface CustomClass {
   'description' : string,
   'proficiencies' : Array<string>,
 }
+export interface CustomItem {
+  'weight' : string,
+  'value' : string,
+  'owner' : Principal,
+  'name' : string,
+  'description' : string,
+  'itemType' : string,
+  'rarity' : string,
+}
+export type CustomItemId = bigint;
 export interface CustomRace {
   'abilityBonuses' : Abilities,
   'traits' : Array<Trait>,
@@ -61,28 +90,18 @@ export interface CustomRace {
   'speed' : bigint,
 }
 export interface CustomSpell {
-  'name' : string,
-  'level' : bigint,
-  'school' : string,
-  'castingTime' : string,
-  'range' : string,
-  'components' : string,
   'duration' : string,
-  'damageEffect' : string,
-  'description' : string,
   'owner' : Principal,
-}
-export interface CustomItem {
+  'school' : string,
   'name' : string,
+  'damageEffect' : string,
+  'components' : string,
   'description' : string,
-  'weight' : string,
-  'value' : string,
-  'itemType' : string,
-  'rarity' : string,
-  'owner' : Principal,
+  'level' : bigint,
+  'range' : string,
+  'castingTime' : string,
 }
 export type CustomSpellId = bigint;
-export type CustomItemId = bigint;
 export interface InventoryItem {
   'weight' : bigint,
   'name' : string,
@@ -102,6 +121,7 @@ export interface Skills {
   'deception' : boolean,
   'sleightOfHand' : boolean,
   'acrobatics' : boolean,
+  'description' : string,
   'athletics' : boolean,
   'history' : boolean,
   'persuasion' : boolean,
@@ -140,28 +160,41 @@ export type UserRole = { 'admin' : null } |
   { 'guest' : null };
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'addCharacterAbility' : ActorMethod<[CharacterAbility], CharacterAbilityId>,
   'addClass' : ActorMethod<[CustomClass], ClassId>,
+  'addCustomAbility' : ActorMethod<[CustomAbility], CustomAbilityId>,
+  'addCustomItem' : ActorMethod<[CustomItem], CustomItemId>,
+  'addCustomSpell' : ActorMethod<[CustomSpell], CustomSpellId>,
   'addItem' : ActorMethod<[InventoryItem], InventoryItemId>,
   'addRace' : ActorMethod<[CustomRace], RaceId>,
   'addSpell' : ActorMethod<[Spell], SpellId>,
   'addTrait' : ActorMethod<[Trait], TraitId>,
-  'addCustomSpell' : ActorMethod<[CustomSpell], CustomSpellId>,
-  'addCustomItem' : ActorMethod<[CustomItem], CustomItemId>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'createCharacter' : ActorMethod<[Character], CharacterId>,
   'deleteCharacter' : ActorMethod<[CharacterId], undefined>,
+  'deleteCharacterAbility' : ActorMethod<[CharacterAbilityId], undefined>,
   'deleteClass' : ActorMethod<[ClassId], undefined>,
+  'deleteCustomAbility' : ActorMethod<[CustomAbilityId], undefined>,
+  'deleteCustomItem' : ActorMethod<[CustomItemId], undefined>,
+  'deleteCustomSpell' : ActorMethod<[CustomSpellId], undefined>,
   'deleteItem' : ActorMethod<[InventoryItemId], undefined>,
   'deleteRace' : ActorMethod<[RaceId], undefined>,
   'deleteSpell' : ActorMethod<[SpellId], undefined>,
   'deleteTrait' : ActorMethod<[TraitId], undefined>,
-  'deleteCustomSpell' : ActorMethod<[CustomSpellId], undefined>,
-  'deleteCustomItem' : ActorMethod<[CustomItemId], undefined>,
+  'getAbilitiesByCharacter' : ActorMethod<
+    [CharacterId],
+    Array<[CharacterAbilityId, CharacterAbility]>
+  >,
   'getAllCharacters' : ActorMethod<[], Array<[CharacterId, Character]>>,
+  'getAllCharactersCount' : ActorMethod<[{}], bigint>,
   'getAllClasses' : ActorMethod<[], Array<[ClassId, CustomClass]>>,
-  'getAllRaces' : ActorMethod<[], Array<[RaceId, CustomRace]>>,
-  'getAllCustomSpells' : ActorMethod<[], Array<[CustomSpellId, CustomSpell]>>,
+  'getAllCustomAbilities' : ActorMethod<
+    [],
+    Array<[CustomAbilityId, CustomAbility]>
+  >,
   'getAllCustomItems' : ActorMethod<[], Array<[CustomItemId, CustomItem]>>,
+  'getAllCustomSpells' : ActorMethod<[], Array<[CustomSpellId, CustomSpell]>>,
+  'getAllRaces' : ActorMethod<[], Array<[RaceId, CustomRace]>>,
   'getAllUserProfiles' : ActorMethod<[], Array<[Principal, UserProfile]>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
@@ -177,14 +210,22 @@ export interface _SERVICE {
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'updateCharacter' : ActorMethod<[CharacterId, Character], undefined>,
+  'updateCharacterAbility' : ActorMethod<
+    [CharacterAbilityId, CharacterAbility],
+    undefined
+  >,
   'updateClass' : ActorMethod<[ClassId, CustomClass], undefined>,
+  'updateCustomAbility' : ActorMethod<
+    [CustomAbilityId, CustomAbility],
+    undefined
+  >,
+  'updateCustomItem' : ActorMethod<[CustomItemId, CustomItem], undefined>,
+  'updateCustomSpell' : ActorMethod<[CustomSpellId, CustomSpell], undefined>,
   'updateItem' : ActorMethod<[InventoryItemId, InventoryItem], undefined>,
   'updateRace' : ActorMethod<[RaceId, CustomRace], undefined>,
   'updateSettings' : ActorMethod<[Settings], undefined>,
   'updateSpell' : ActorMethod<[SpellId, Spell], undefined>,
   'updateTrait' : ActorMethod<[TraitId, Trait], undefined>,
-  'updateCustomSpell' : ActorMethod<[CustomSpellId, CustomSpell], undefined>,
-  'updateCustomItem' : ActorMethod<[CustomItemId, CustomItem], undefined>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

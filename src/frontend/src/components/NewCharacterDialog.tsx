@@ -66,6 +66,7 @@ const DEFAULT_SKILLS = {
   sleightOfHand: false,
   stealth: false,
   survival: false,
+  description: "",
 };
 
 export default function NewCharacterDialog({

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import NewCharacterDialog from "../components/NewCharacterDialog";
+import AbilitiesTab from "../components/tabs/AbilitiesTab";
 import FeaturesTab from "../components/tabs/FeaturesTab";
 import InventoryTab from "../components/tabs/InventoryTab";
 import NotesTab from "../components/tabs/NotesTab";
@@ -13,7 +14,13 @@ interface Props {
   onBack: () => void;
 }
 
-type Tab = "stats" | "spells" | "inventory" | "features" | "notes";
+type Tab =
+  | "stats"
+  | "spells"
+  | "inventory"
+  | "features"
+  | "abilities"
+  | "notes";
 
 export default function CharacterSheetPage({
   actor,
@@ -74,6 +81,7 @@ export default function CharacterSheetPage({
     { id: "spells", label: "Spells" },
     { id: "inventory", label: "Inventory" },
     { id: "features", label: "Features" },
+    { id: "abilities", label: "Abilities" },
     { id: "notes", label: "Notes" },
   ];
 
@@ -95,6 +103,7 @@ export default function CharacterSheetPage({
             className="ds-btn-ghost"
             onClick={onBack}
             style={{ marginBottom: 8, fontSize: 13 }}
+            data-ocid="character.link"
           >
             ← All Characters
           </button>
@@ -116,6 +125,7 @@ export default function CharacterSheetPage({
           className="ds-btn-primary"
           onClick={() => setShowEdit(true)}
           style={{ fontFamily: "Cinzel, serif" }}
+          data-ocid="character.edit_button"
         >
           Edit Character
         </button>
@@ -173,6 +183,7 @@ export default function CharacterSheetPage({
             type="button"
             key={t.id}
             onClick={() => setTab(t.id)}
+            data-ocid="character.tab"
             style={{
               background: "transparent",
               border: "none",
@@ -220,6 +231,9 @@ export default function CharacterSheetPage({
       )}
       {tab === "features" && (
         <FeaturesTab actor={actor} characterId={characterId} />
+      )}
+      {tab === "abilities" && (
+        <AbilitiesTab actor={actor} characterId={characterId} />
       )}
       {tab === "notes" && (
         <NotesTab

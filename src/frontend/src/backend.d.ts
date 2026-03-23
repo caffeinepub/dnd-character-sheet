@@ -8,6 +8,14 @@ export interface None {
 }
 export type Option<T> = Some<T> | None;
 export type CharacterId = bigint;
+export interface Abilities {
+    cha: bigint;
+    con: bigint;
+    dex: bigint;
+    int: bigint;
+    str: bigint;
+    wis: bigint;
+}
 export interface Skills {
     perception: boolean;
     animalHandling: boolean;
@@ -16,6 +24,7 @@ export interface Skills {
     deception: boolean;
     sleightOfHand: boolean;
     acrobatics: boolean;
+    description: string;
     athletics: boolean;
     history: boolean;
     persuasion: boolean;
@@ -30,11 +39,6 @@ export interface Skills {
 }
 export type TraitId = bigint;
 export type RaceId = bigint;
-export type SpellId = bigint;
-export type ClassId = bigint;
-export type InventoryItemId = bigint;
-export type CustomSpellId = bigint;
-export type CustomItemId = bigint;
 export interface Spell {
     duration: string;
     school: string;
@@ -47,34 +51,14 @@ export interface Spell {
     range: string;
     castingTime: string;
 }
-export interface Abilities {
-    cha: bigint;
-    con: bigint;
-    dex: bigint;
-    int: bigint;
-    str: bigint;
-    wis: bigint;
-}
-export interface Trait {
-    source: string;
-    name: string;
-    description: string;
-    characterId: CharacterId;
-}
 export interface CustomClass {
+    features: Array<Trait>;
     name: string;
     hitDie: bigint;
     description: string;
     proficiencies: Array<string>;
-    features: Array<Trait>;
 }
-export interface CustomRace {
-    name: string;
-    description: string;
-    speed: bigint;
-    abilityBonuses: Abilities;
-    traits: Array<Trait>;
-}
+export type InventoryItemId = bigint;
 export interface Character {
     ac: bigint;
     cha: bigint;
@@ -101,6 +85,12 @@ export interface Character {
     alignment: string;
     initiative: bigint;
 }
+export interface Trait {
+    source: string;
+    name: string;
+    description: string;
+    characterId: CharacterId;
+}
 export interface InventoryItem {
     weight: bigint;
     name: string;
@@ -109,32 +99,62 @@ export interface InventoryItem {
     quantity: bigint;
     characterId: CharacterId;
 }
-export interface CustomSpell {
-    name: string;
-    level: bigint;
-    school: string;
-    castingTime: string;
-    range: string;
-    components: string;
-    duration: string;
-    damageEffect: string;
-    description: string;
-    owner: Principal;
-}
-export interface CustomItem {
-    name: string;
-    description: string;
-    weight: string;
-    value: string;
-    itemType: string;
-    rarity: string;
-    owner: Principal;
-}
 export interface Settings {
     maxLevel: bigint;
 }
+export interface CustomItem {
+    weight: string;
+    value: string;
+    owner: Principal;
+    name: string;
+    description: string;
+    itemType: string;
+    rarity: string;
+}
+export type SpellId = bigint;
+export interface CustomSpell {
+    duration: string;
+    owner: Principal;
+    school: string;
+    name: string;
+    damageEffect: string;
+    components: string;
+    description: string;
+    level: bigint;
+    range: string;
+    castingTime: string;
+}
+export type CustomAbilityId = bigint;
+export type CharacterAbilityId = bigint;
+export type CustomSpellId = bigint;
+export interface CustomRace {
+    abilityBonuses: Abilities;
+    traits: Array<Trait>;
+    name: string;
+    description: string;
+    speed: bigint;
+}
+export type CustomItemId = bigint;
+export type ClassId = bigint;
+export interface CustomAbility {
+    owner: Principal;
+    name: string;
+    uses: bigint;
+    description: string;
+    abilityType: string;
+    rechargeOn: string;
+}
 export interface UserProfile {
     name: string;
+}
+export interface CharacterAbility {
+    usesRemaining: bigint;
+    name: string;
+    uses: bigint;
+    description: string;
+    abilityType: string;
+    rechargeOn: string;
+    characterId: CharacterId;
 }
 export enum UserRole {
     admin = "admin",
@@ -142,28 +162,36 @@ export enum UserRole {
     guest = "guest"
 }
 export interface backendInterface {
+    addCharacterAbility(ability: CharacterAbility): Promise<CharacterAbilityId>;
     addClass(cls: CustomClass): Promise<ClassId>;
+    addCustomAbility(ability: CustomAbility): Promise<CustomAbilityId>;
+    addCustomItem(item: CustomItem): Promise<CustomItemId>;
+    addCustomSpell(spell: CustomSpell): Promise<CustomSpellId>;
     addItem(item: InventoryItem): Promise<InventoryItemId>;
     addRace(race: CustomRace): Promise<RaceId>;
     addSpell(spell: Spell): Promise<SpellId>;
     addTrait(trait: Trait): Promise<TraitId>;
-    addCustomSpell(spell: CustomSpell): Promise<CustomSpellId>;
-    addCustomItem(item: CustomItem): Promise<CustomItemId>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createCharacter(char: Character): Promise<CharacterId>;
     deleteCharacter(id: CharacterId): Promise<void>;
+    deleteCharacterAbility(id: CharacterAbilityId): Promise<void>;
     deleteClass(id: ClassId): Promise<void>;
+    deleteCustomAbility(id: CustomAbilityId): Promise<void>;
+    deleteCustomItem(id: CustomItemId): Promise<void>;
+    deleteCustomSpell(id: CustomSpellId): Promise<void>;
     deleteItem(id: InventoryItemId): Promise<void>;
     deleteRace(id: RaceId): Promise<void>;
     deleteSpell(id: SpellId): Promise<void>;
     deleteTrait(id: TraitId): Promise<void>;
-    deleteCustomSpell(id: CustomSpellId): Promise<void>;
-    deleteCustomItem(id: CustomItemId): Promise<void>;
+    getAbilitiesByCharacter(characterId: CharacterId): Promise<Array<[CharacterAbilityId, CharacterAbility]>>;
     getAllCharacters(): Promise<Array<[CharacterId, Character]>>;
+    getAllCharactersCount(arg0: {
+    }): Promise<bigint>;
     getAllClasses(): Promise<Array<[ClassId, CustomClass]>>;
-    getAllRaces(): Promise<Array<[RaceId, CustomRace]>>;
-    getAllCustomSpells(): Promise<Array<[CustomSpellId, CustomSpell]>>;
+    getAllCustomAbilities(): Promise<Array<[CustomAbilityId, CustomAbility]>>;
     getAllCustomItems(): Promise<Array<[CustomItemId, CustomItem]>>;
+    getAllCustomSpells(): Promise<Array<[CustomSpellId, CustomSpell]>>;
+    getAllRaces(): Promise<Array<[RaceId, CustomRace]>>;
     getAllUserProfiles(): Promise<Array<[Principal, UserProfile]>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
@@ -176,12 +204,14 @@ export interface backendInterface {
     isCallerAdmin(): Promise<boolean>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     updateCharacter(id: CharacterId, char: Character): Promise<void>;
+    updateCharacterAbility(id: CharacterAbilityId, ability: CharacterAbility): Promise<void>;
     updateClass(id: ClassId, cls: CustomClass): Promise<void>;
+    updateCustomAbility(id: CustomAbilityId, ability: CustomAbility): Promise<void>;
+    updateCustomItem(id: CustomItemId, item: CustomItem): Promise<void>;
+    updateCustomSpell(id: CustomSpellId, spell: CustomSpell): Promise<void>;
     updateItem(id: InventoryItemId, item: InventoryItem): Promise<void>;
     updateRace(id: RaceId, race: CustomRace): Promise<void>;
     updateSettings(newSettings: Settings): Promise<void>;
     updateSpell(id: SpellId, spell: Spell): Promise<void>;
     updateTrait(id: TraitId, trait: Trait): Promise<void>;
-    updateCustomSpell(id: CustomSpellId, spell: CustomSpell): Promise<void>;
-    updateCustomItem(id: CustomItemId, item: CustomItem): Promise<void>;
 }

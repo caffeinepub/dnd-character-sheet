@@ -1,23 +1,27 @@
 # DungeonScribe
 
 ## Current State
-- Full backend exists with Characters, Spells, Traits, Inventory, Custom Races, Custom Classes, Custom Spells, Custom Items, Settings, and User Profiles
-- Authorization uses role-based access control (`#user` / `#admin`) but new authenticated users are never granted `#user` role automatically, causing all API calls to fail with "Unauthorized"
-- Generated bindings (`backend.ts`) are outdated -- missing `addCustomSpell`, `getAllCustomSpells`, `deleteCustomSpell`, `updateCustomSpell`, `addCustomItem`, `getAllCustomItems`, `deleteCustomItem`, `updateCustomItem`
-- Frontend tabs and settings are stuck in loading state because backend calls fail
+Full backend with characters, spells, inventory, traits, custom spells, custom items, races, classes. No abilities system exists yet.
 
 ## Requested Changes (Diff)
 
 ### Add
-- Nothing new; existing features need to work correctly
+- `CustomAbility` type: name, description, abilityType (passive/active/reaction), uses (optional), rechargeOn, owner Principal
+- `CharacterAbility` type: characterId, name, description, abilityType, uses, usesRemaining, rechargeOn
+- Backend CRUD for custom ability library (owner-scoped, like custom spells)
+- Backend CRUD for per-character abilities (like spells per character)
+- Abilities tab on each character sheet: list character abilities, "Add from Library" button, manual add/edit/delete
+- Custom Abilities section in Settings: global library CRUD
 
 ### Modify
-- Fix authorization: user-level operations should verify caller is not anonymous (not require an assigned `#user` role), so any Internet Identity user can use the app immediately upon login
-- Regenerate bindings to include all custom spell and item methods
+- Nothing existing needs to change
 
 ### Remove
 - Nothing
 
 ## Implementation Plan
-1. Regenerate Motoko backend with same full feature set but using `not Principal.isAnonymous(caller)` for user-level auth checks and keeping access control only for admin operations
-2. Update frontend to handle any auth errors gracefully (show error message rather than infinite loading)
+1. Add CustomAbility and CharacterAbility types to backend
+2. Add CRUD functions for both types
+3. Regenerate backend.d.ts bindings
+4. Add Abilities tab to character sheet UI
+5. Add Custom Abilities section to Settings page
