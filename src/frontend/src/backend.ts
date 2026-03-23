@@ -89,10 +89,683 @@ export class ExternalBlob {
         return this;
     }
 }
-export interface backendInterface {
+export type CharacterId = bigint;
+export interface Skills {
+    perception: boolean;
+    animalHandling: boolean;
+    nature: boolean;
+    investigation: boolean;
+    deception: boolean;
+    sleightOfHand: boolean;
+    acrobatics: boolean;
+    athletics: boolean;
+    history: boolean;
+    persuasion: boolean;
+    medicine: boolean;
+    stealth: boolean;
+    survival: boolean;
+    insight: boolean;
+    intimidation: boolean;
+    performance: boolean;
+    arcana: boolean;
+    religion: boolean;
 }
+export type TraitId = bigint;
+export type RaceId = bigint;
+export interface Spell {
+    duration: string;
+    school: string;
+    name: string;
+    damageEffect: string;
+    components: string;
+    description: string;
+    level: bigint;
+    characterId: CharacterId;
+    range: string;
+    castingTime: string;
+}
+export interface CustomClass {
+    features: Array<Trait>;
+    name: string;
+    hitDie: bigint;
+    description: string;
+    proficiencies: Array<string>;
+}
+export type InventoryItemId = bigint;
+export interface Character {
+    ac: bigint;
+    cha: bigint;
+    con: bigint;
+    dex: bigint;
+    int: bigint;
+    str: bigint;
+    wis: bigint;
+    spellSlots: Array<bigint>;
+    characterClass: string;
+    background: string;
+    hpMax: bigint;
+    owner: Principal;
+    gold: bigint;
+    name: string;
+    race: string;
+    hpCurrent: bigint;
+    level: bigint;
+    speed: bigint;
+    gender: string;
+    notes: string;
+    skills: Skills;
+    proficiencyBonus: bigint;
+    alignment: string;
+    initiative: bigint;
+}
+export interface Trait {
+    source: string;
+    name: string;
+    description: string;
+    characterId: CharacterId;
+}
+export interface InventoryItem {
+    weight: bigint;
+    name: string;
+    description: string;
+    equipped: boolean;
+    quantity: bigint;
+    characterId: CharacterId;
+}
+export interface Settings {
+    maxLevel: bigint;
+}
+export type SpellId = bigint;
+export type ClassId = bigint;
+export interface CustomRace {
+    abilityBonuses: Abilities;
+    traits: Array<Trait>;
+    name: string;
+    description: string;
+    speed: bigint;
+}
+export interface Abilities {
+    cha: bigint;
+    con: bigint;
+    dex: bigint;
+    int: bigint;
+    str: bigint;
+    wis: bigint;
+}
+export interface UserProfile {
+    name: string;
+}
+export enum UserRole {
+    admin = "admin",
+    user = "user",
+    guest = "guest"
+}
+export interface backendInterface {
+    _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
+    addClass(cls: CustomClass): Promise<ClassId>;
+    addItem(item: InventoryItem): Promise<InventoryItemId>;
+    addRace(race: CustomRace): Promise<RaceId>;
+    addSpell(spell: Spell): Promise<SpellId>;
+    addTrait(trait: Trait): Promise<TraitId>;
+    assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    createCharacter(char: Character): Promise<CharacterId>;
+    deleteCharacter(id: CharacterId): Promise<void>;
+    deleteClass(id: ClassId): Promise<void>;
+    deleteItem(id: InventoryItemId): Promise<void>;
+    deleteRace(id: RaceId): Promise<void>;
+    deleteSpell(id: SpellId): Promise<void>;
+    deleteTrait(id: TraitId): Promise<void>;
+    getAllCharacters(): Promise<Array<[CharacterId, Character]>>;
+    getAllClasses(): Promise<Array<[ClassId, CustomClass]>>;
+    getAllRaces(): Promise<Array<[RaceId, CustomRace]>>;
+    getAllUserProfiles(): Promise<Array<[Principal, UserProfile]>>;
+    getCallerUserProfile(): Promise<UserProfile | null>;
+    getCallerUserRole(): Promise<UserRole>;
+    getCharacter(id: CharacterId): Promise<Character | null>;
+    getItemsByCharacter(characterId: CharacterId): Promise<Array<[InventoryItemId, InventoryItem]>>;
+    getSettings(): Promise<Settings>;
+    getSpellsByCharacter(characterId: CharacterId): Promise<Array<[SpellId, Spell]>>;
+    getTraitsByCharacter(characterId: CharacterId): Promise<Array<[TraitId, Trait]>>;
+    getUserProfile(user: Principal): Promise<UserProfile | null>;
+    isCallerAdmin(): Promise<boolean>;
+    saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    updateCharacter(id: CharacterId, char: Character): Promise<void>;
+    updateClass(id: ClassId, cls: CustomClass): Promise<void>;
+    updateItem(id: InventoryItemId, item: InventoryItem): Promise<void>;
+    updateRace(id: RaceId, race: CustomRace): Promise<void>;
+    updateSettings(newSettings: Settings): Promise<void>;
+    updateSpell(id: SpellId, spell: Spell): Promise<void>;
+    updateTrait(id: TraitId, trait: Trait): Promise<void>;
+}
+import type { Character as _Character, UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
+    async _initializeAccessControlWithSecret(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor._initializeAccessControlWithSecret(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor._initializeAccessControlWithSecret(arg0);
+            return result;
+        }
+    }
+    async addClass(arg0: CustomClass): Promise<ClassId> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addClass(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addClass(arg0);
+            return result;
+        }
+    }
+    async addItem(arg0: InventoryItem): Promise<InventoryItemId> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addItem(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addItem(arg0);
+            return result;
+        }
+    }
+    async addRace(arg0: CustomRace): Promise<RaceId> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addRace(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addRace(arg0);
+            return result;
+        }
+    }
+    async addSpell(arg0: Spell): Promise<SpellId> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addSpell(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addSpell(arg0);
+            return result;
+        }
+    }
+    async addTrait(arg0: Trait): Promise<TraitId> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addTrait(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addTrait(arg0);
+            return result;
+        }
+    }
+    async assignCallerUserRole(arg0: Principal, arg1: UserRole): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n1(this._uploadFile, this._downloadFile, arg1));
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n1(this._uploadFile, this._downloadFile, arg1));
+            return result;
+        }
+    }
+    async createCharacter(arg0: Character): Promise<CharacterId> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createCharacter(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createCharacter(arg0);
+            return result;
+        }
+    }
+    async deleteCharacter(arg0: CharacterId): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteCharacter(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteCharacter(arg0);
+            return result;
+        }
+    }
+    async deleteClass(arg0: ClassId): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteClass(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteClass(arg0);
+            return result;
+        }
+    }
+    async deleteItem(arg0: InventoryItemId): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteItem(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteItem(arg0);
+            return result;
+        }
+    }
+    async deleteRace(arg0: RaceId): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteRace(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteRace(arg0);
+            return result;
+        }
+    }
+    async deleteSpell(arg0: SpellId): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteSpell(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteSpell(arg0);
+            return result;
+        }
+    }
+    async deleteTrait(arg0: TraitId): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.deleteTrait(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.deleteTrait(arg0);
+            return result;
+        }
+    }
+    async getAllCharacters(): Promise<Array<[CharacterId, Character]>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllCharacters();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllCharacters();
+            return result;
+        }
+    }
+    async getAllClasses(): Promise<Array<[ClassId, CustomClass]>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllClasses();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllClasses();
+            return result;
+        }
+    }
+    async getAllRaces(): Promise<Array<[RaceId, CustomRace]>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllRaces();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllRaces();
+            return result;
+        }
+    }
+    async getAllUserProfiles(): Promise<Array<[Principal, UserProfile]>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getAllUserProfiles();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getAllUserProfiles();
+            return result;
+        }
+    }
+    async getCallerUserProfile(): Promise<UserProfile | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getCallerUserProfile();
+                return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getCallerUserProfile();
+            return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getCallerUserRole(): Promise<UserRole> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getCallerUserRole();
+                return from_candid_UserRole_n4(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getCallerUserRole();
+            return from_candid_UserRole_n4(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getCharacter(arg0: CharacterId): Promise<Character | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getCharacter(arg0);
+                return from_candid_opt_n6(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getCharacter(arg0);
+            return from_candid_opt_n6(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getItemsByCharacter(arg0: CharacterId): Promise<Array<[InventoryItemId, InventoryItem]>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getItemsByCharacter(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getItemsByCharacter(arg0);
+            return result;
+        }
+    }
+    async getSettings(): Promise<Settings> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getSettings();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getSettings();
+            return result;
+        }
+    }
+    async getSpellsByCharacter(arg0: CharacterId): Promise<Array<[SpellId, Spell]>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getSpellsByCharacter(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getSpellsByCharacter(arg0);
+            return result;
+        }
+    }
+    async getTraitsByCharacter(arg0: CharacterId): Promise<Array<[TraitId, Trait]>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getTraitsByCharacter(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getTraitsByCharacter(arg0);
+            return result;
+        }
+    }
+    async getUserProfile(arg0: Principal): Promise<UserProfile | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getUserProfile(arg0);
+                return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getUserProfile(arg0);
+            return from_candid_opt_n3(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async isCallerAdmin(): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.isCallerAdmin();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.isCallerAdmin();
+            return result;
+        }
+    }
+    async saveCallerUserProfile(arg0: UserProfile): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.saveCallerUserProfile(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.saveCallerUserProfile(arg0);
+            return result;
+        }
+    }
+    async updateCharacter(arg0: CharacterId, arg1: Character): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateCharacter(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateCharacter(arg0, arg1);
+            return result;
+        }
+    }
+    async updateClass(arg0: ClassId, arg1: CustomClass): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateClass(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateClass(arg0, arg1);
+            return result;
+        }
+    }
+    async updateItem(arg0: InventoryItemId, arg1: InventoryItem): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateItem(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateItem(arg0, arg1);
+            return result;
+        }
+    }
+    async updateRace(arg0: RaceId, arg1: CustomRace): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateRace(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateRace(arg0, arg1);
+            return result;
+        }
+    }
+    async updateSettings(arg0: Settings): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateSettings(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateSettings(arg0);
+            return result;
+        }
+    }
+    async updateSpell(arg0: SpellId, arg1: Spell): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateSpell(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateSpell(arg0, arg1);
+            return result;
+        }
+    }
+    async updateTrait(arg0: TraitId, arg1: Trait): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.updateTrait(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.updateTrait(arg0, arg1);
+            return result;
+        }
+    }
+}
+function from_candid_UserRole_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _UserRole): UserRole {
+    return from_candid_variant_n5(_uploadFile, _downloadFile, value);
+}
+function from_candid_opt_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_UserProfile]): UserProfile | null {
+    return value.length === 0 ? null : value[0];
+}
+function from_candid_opt_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_Character]): Character | null {
+    return value.length === 0 ? null : value[0];
+}
+function from_candid_variant_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    admin: null;
+} | {
+    user: null;
+} | {
+    guest: null;
+}): UserRole {
+    return "admin" in value ? UserRole.admin : "user" in value ? UserRole.user : "guest" in value ? UserRole.guest : value;
+}
+function to_candid_UserRole_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): _UserRole {
+    return to_candid_variant_n2(_uploadFile, _downloadFile, value);
+}
+function to_candid_variant_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): {
+    admin: null;
+} | {
+    user: null;
+} | {
+    guest: null;
+} {
+    return value == UserRole.admin ? {
+        admin: null
+    } : value == UserRole.user ? {
+        user: null
+    } : value == UserRole.guest ? {
+        guest: null
+    } : value;
 }
 export interface CreateActorOptions {
     agent?: Agent;

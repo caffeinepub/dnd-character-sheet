@@ -10,7 +10,151 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
-export interface _SERVICE {}
+export interface Abilities {
+  'cha' : bigint,
+  'con' : bigint,
+  'dex' : bigint,
+  'int' : bigint,
+  'str' : bigint,
+  'wis' : bigint,
+}
+export interface Character {
+  'ac' : bigint,
+  'cha' : bigint,
+  'con' : bigint,
+  'dex' : bigint,
+  'int' : bigint,
+  'str' : bigint,
+  'wis' : bigint,
+  'spellSlots' : Array<bigint>,
+  'characterClass' : string,
+  'background' : string,
+  'hpMax' : bigint,
+  'owner' : Principal,
+  'gold' : bigint,
+  'name' : string,
+  'race' : string,
+  'hpCurrent' : bigint,
+  'level' : bigint,
+  'speed' : bigint,
+  'gender' : string,
+  'notes' : string,
+  'skills' : Skills,
+  'proficiencyBonus' : bigint,
+  'alignment' : string,
+  'initiative' : bigint,
+}
+export type CharacterId = bigint;
+export type ClassId = bigint;
+export interface CustomClass {
+  'features' : Array<Trait>,
+  'name' : string,
+  'hitDie' : bigint,
+  'description' : string,
+  'proficiencies' : Array<string>,
+}
+export interface CustomRace {
+  'abilityBonuses' : Abilities,
+  'traits' : Array<Trait>,
+  'name' : string,
+  'description' : string,
+  'speed' : bigint,
+}
+export interface InventoryItem {
+  'weight' : bigint,
+  'name' : string,
+  'description' : string,
+  'equipped' : boolean,
+  'quantity' : bigint,
+  'characterId' : CharacterId,
+}
+export type InventoryItemId = bigint;
+export type RaceId = bigint;
+export interface Settings { 'maxLevel' : bigint }
+export interface Skills {
+  'perception' : boolean,
+  'animalHandling' : boolean,
+  'nature' : boolean,
+  'investigation' : boolean,
+  'deception' : boolean,
+  'sleightOfHand' : boolean,
+  'acrobatics' : boolean,
+  'athletics' : boolean,
+  'history' : boolean,
+  'persuasion' : boolean,
+  'medicine' : boolean,
+  'stealth' : boolean,
+  'survival' : boolean,
+  'insight' : boolean,
+  'intimidation' : boolean,
+  'performance' : boolean,
+  'arcana' : boolean,
+  'religion' : boolean,
+}
+export interface Spell {
+  'duration' : string,
+  'school' : string,
+  'name' : string,
+  'damageEffect' : string,
+  'components' : string,
+  'description' : string,
+  'level' : bigint,
+  'characterId' : CharacterId,
+  'range' : string,
+  'castingTime' : string,
+}
+export type SpellId = bigint;
+export interface Trait {
+  'source' : string,
+  'name' : string,
+  'description' : string,
+  'characterId' : CharacterId,
+}
+export type TraitId = bigint;
+export interface UserProfile { 'name' : string }
+export type UserRole = { 'admin' : null } |
+  { 'user' : null } |
+  { 'guest' : null };
+export interface _SERVICE {
+  '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'addClass' : ActorMethod<[CustomClass], ClassId>,
+  'addItem' : ActorMethod<[InventoryItem], InventoryItemId>,
+  'addRace' : ActorMethod<[CustomRace], RaceId>,
+  'addSpell' : ActorMethod<[Spell], SpellId>,
+  'addTrait' : ActorMethod<[Trait], TraitId>,
+  'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'createCharacter' : ActorMethod<[Character], CharacterId>,
+  'deleteCharacter' : ActorMethod<[CharacterId], undefined>,
+  'deleteClass' : ActorMethod<[ClassId], undefined>,
+  'deleteItem' : ActorMethod<[InventoryItemId], undefined>,
+  'deleteRace' : ActorMethod<[RaceId], undefined>,
+  'deleteSpell' : ActorMethod<[SpellId], undefined>,
+  'deleteTrait' : ActorMethod<[TraitId], undefined>,
+  'getAllCharacters' : ActorMethod<[], Array<[CharacterId, Character]>>,
+  'getAllClasses' : ActorMethod<[], Array<[ClassId, CustomClass]>>,
+  'getAllRaces' : ActorMethod<[], Array<[RaceId, CustomRace]>>,
+  'getAllUserProfiles' : ActorMethod<[], Array<[Principal, UserProfile]>>,
+  'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
+  'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getCharacter' : ActorMethod<[CharacterId], [] | [Character]>,
+  'getItemsByCharacter' : ActorMethod<
+    [CharacterId],
+    Array<[InventoryItemId, InventoryItem]>
+  >,
+  'getSettings' : ActorMethod<[], Settings>,
+  'getSpellsByCharacter' : ActorMethod<[CharacterId], Array<[SpellId, Spell]>>,
+  'getTraitsByCharacter' : ActorMethod<[CharacterId], Array<[TraitId, Trait]>>,
+  'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
+  'isCallerAdmin' : ActorMethod<[], boolean>,
+  'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'updateCharacter' : ActorMethod<[CharacterId, Character], undefined>,
+  'updateClass' : ActorMethod<[ClassId, CustomClass], undefined>,
+  'updateItem' : ActorMethod<[InventoryItemId, InventoryItem], undefined>,
+  'updateRace' : ActorMethod<[RaceId, CustomRace], undefined>,
+  'updateSettings' : ActorMethod<[Settings], undefined>,
+  'updateSpell' : ActorMethod<[SpellId, Spell], undefined>,
+  'updateTrait' : ActorMethod<[TraitId, Trait], undefined>,
+}
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];
 export declare const idlFactory: IDL.InterfaceFactory;
