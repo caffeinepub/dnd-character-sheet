@@ -1,0 +1,190 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.625rem;
+    --ds-bg: #0f1113;
+    --ds-surface: #1b2126;
+    --ds-surface2: #20272d;
+    --ds-border: #2b333b;
+    --ds-text: #e7e1d6;
+    --ds-muted: #b9b2a7;
+    --ds-gold: #c9a35a;
+    --ds-gold-light: #d7b46a;
+    --ds-maroon: #5a1e1e;
+    --ds-maroon-border: #8a3a33;
+    --ds-red: #6b1f1f;
+    --background: 0.145 0 0;
+    --foreground: 0.985 0 0;
+    --card: 0.205 0 0;
+    --card-foreground: 0.985 0 0;
+    --popover: 0.269 0 0;
+    --popover-foreground: 0.985 0 0;
+    --primary: 0.922 0 0;
+    --primary-foreground: 0.205 0 0;
+    --secondary: 0.269 0 0;
+    --secondary-foreground: 0.985 0 0;
+    --muted: 0.269 0 0;
+    --muted-foreground: 0.708 0 0;
+    --accent: 0.371 0 0;
+    --accent-foreground: 0.985 0 0;
+    --destructive: 0.704 0.191 22.216;
+    --destructive-foreground: 0.205 0 0;
+    --border: 1 0 0 / 10%;
+    --input: 1 0 0 / 15%;
+    --ring: 0.556 0 0;
+    --sidebar: 0.205 0 0;
+    --sidebar-foreground: 0.985 0 0;
+    --sidebar-primary: 0.488 0.243 264.376;
+    --sidebar-primary-foreground: 0.985 0 0;
+    --sidebar-accent: 0.269 0 0;
+    --sidebar-accent-foreground: 0.985 0 0;
+    --sidebar-border: 1 0 0 / 10%;
+    --sidebar-ring: 0.439 0 0;
+  }
+
+  * {
+    @apply border-border;
+  }
+  body {
+    background-color: var(--ds-bg);
+    color: var(--ds-text);
+    font-family: "Inter", sans-serif;
+  }
+}
+
+.font-cinzel {
+  font-family: "Cinzel", serif;
+}
+
+.ds-card {
+  background-color: var(--ds-surface);
+  border: 1px solid var(--ds-border);
+  border-radius: 10px;
+  transition: border-color 0.2s;
+}
+
+.ds-card.clickable:hover {
+  border-color: var(--ds-gold);
+  cursor: pointer;
+}
+
+.ds-card2 {
+  background-color: var(--ds-surface2);
+  border: 1px solid var(--ds-border);
+  border-radius: 8px;
+}
+
+.ds-btn-primary {
+  background-color: var(--ds-maroon);
+  border: 1px solid var(--ds-maroon-border);
+  color: #f2e9db;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+.ds-btn-primary:hover {
+  background-color: #6b2424;
+}
+.ds-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ds-btn-ghost {
+  background: transparent;
+  color: var(--ds-muted);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.ds-btn-ghost:hover {
+  color: var(--ds-text);
+  border-color: var(--ds-border);
+}
+
+.ds-input {
+  background-color: var(--ds-surface2);
+  border: 1px solid var(--ds-border);
+  color: var(--ds-text);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 14px;
+  width: 100%;
+  outline: none;
+}
+.ds-input:focus {
+  border-color: var(--ds-gold);
+}
+.ds-input::placeholder {
+  color: var(--ds-muted);
+}
+
+.ds-label {
+  font-size: 12px;
+  color: var(--ds-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.ds-gold {
+  color: var(--ds-gold);
+}
+.ds-muted {
+  color: var(--ds-muted);
+}
+
+.ability-box {
+  background-color: var(--ds-surface2);
+  border: 1px solid var(--ds-border);
+  border-radius: 8px;
+  text-align: center;
+  padding: 8px 4px;
+}
+
+.skill-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+}
+.skill-btn:hover {
+  background-color: var(--ds-surface2);
+}
+
+select.ds-input option {
+  background-color: #1b2126;
+  color: var(--ds-text);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--ds-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ds-border);
+  border-radius: 3px;
+}
+
+@media (max-width: 640px) {
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
