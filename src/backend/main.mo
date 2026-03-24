@@ -4,13 +4,13 @@ import Array "mo:core/Array";
 import Nat "mo:core/Nat";
 import Principal "mo:core/Principal";
 import Runtime "mo:core/Runtime";
-import Migration "migration";
+
 
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
 
 // Specify the data migration function in with-clause
-(with migration = Migration.run)
+
 actor {
   // Types
   public type CharacterId = Nat;
@@ -206,6 +206,8 @@ actor {
   var settings : Settings = { maxLevel = 10000 };
   let userProfiles = Map.empty<Principal, UserProfile>();
 
+  let raceOwners = Map.empty<RaceId, Principal>();
+  let classOwners = Map.empty<ClassId, Principal>();
   let customAbilities = Map.empty<CustomAbilityId, CustomAbility>();
   let characterAbilities = Map.empty<CharacterAbilityId, CharacterAbility>();
 
@@ -455,54 +457,100 @@ actor {
 
   // Custom Races (admin CRUD)
   public shared ({ caller }) func addRace(race : CustomRace) : async RaceId {
-    requireAdmin(caller);
+    requireAuth(caller);
     let raceId = nextRaceId;
     nextRaceId += 1;
     races.add(raceId, race);
+    raceOwners.add(raceId, caller);
     raceId;
   };
 
   public query ({ caller }) func getAllRaces() : async [(RaceId, CustomRace)] {
     requireAuth(caller);
-    races.toArray();
+    let resultList = List.empty<(RaceId, CustomRace)>();
+    for ((id, race) in races.entries()) {
+      switch (raceOwners.get(id)) {
+        case (?owner) { if (Principal.equal(owner, caller)) { resultList.add((id, race)) } };
+        case (null) {};
+      };
+    };
+    resultList.toArray();
   };
 
   public shared ({ caller }) func updateRace(id : RaceId, race : CustomRace) : async () {
-    requireAdmin(caller);
+    requireAuth(caller);
     if (not races.containsKey(id)) { Runtime.trap("Race not found") };
+    let isOwner = switch (raceOwners.get(id)) {
+      case (?owner) { Principal.equal(owner, caller) };
+      case (null) { false };
+    };
+    if (not isOwner and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Cannot edit races you do not own");
+    };
     races.add(id, race);
   };
 
   public shared ({ caller }) func deleteRace(id : RaceId) : async () {
-    requireAdmin(caller);
+    requireAuth(caller);
     if (not races.containsKey(id)) { Runtime.trap("Race not found") };
+    let isOwner = switch (raceOwners.get(id)) {
+      case (?owner) { Principal.equal(owner, caller) };
+      case (null) { false };
+    };
+    if (not isOwner and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Cannot delete races you do not own");
+    };
     races.remove(id);
+    raceOwners.remove(id);
   };
 
   // Custom Classes (admin CRUD)
   public shared ({ caller }) func addClass(cls : CustomClass) : async ClassId {
-    requireAdmin(caller);
+    requireAuth(caller);
     let classId = nextClassId;
     nextClassId += 1;
     classes.add(classId, cls);
+    classOwners.add(classId, caller);
     classId;
   };
 
   public query ({ caller }) func getAllClasses() : async [(ClassId, CustomClass)] {
     requireAuth(caller);
-    classes.toArray();
+    let resultList = List.empty<(ClassId, CustomClass)>();
+    for ((id, cls) in classes.entries()) {
+      switch (classOwners.get(id)) {
+        case (?owner) { if (Principal.equal(owner, caller)) { resultList.add((id, cls)) } };
+        case (null) {};
+      };
+    };
+    resultList.toArray();
   };
 
   public shared ({ caller }) func updateClass(id : ClassId, cls : CustomClass) : async () {
-    requireAdmin(caller);
+    requireAuth(caller);
     if (not classes.containsKey(id)) { Runtime.trap("Class not found") };
+    let isOwner = switch (classOwners.get(id)) {
+      case (?owner) { Principal.equal(owner, caller) };
+      case (null) { false };
+    };
+    if (not isOwner and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Cannot edit classes you do not own");
+    };
     classes.add(id, cls);
   };
 
   public shared ({ caller }) func deleteClass(id : ClassId) : async () {
-    requireAdmin(caller);
+    requireAuth(caller);
     if (not classes.containsKey(id)) { Runtime.trap("Class not found") };
+    let isOwner = switch (classOwners.get(id)) {
+      case (?owner) { Principal.equal(owner, caller) };
+      case (null) { false };
+    };
+    if (not isOwner and not AccessControl.isAdmin(accessControlState, caller)) {
+      Runtime.trap("Unauthorized: Cannot delete classes you do not own");
+    };
     classes.remove(id);
+    classOwners.remove(id);
   };
 
   // Custom Spell Library (user CRUD, owner-scoped)

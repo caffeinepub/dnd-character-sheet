@@ -133,6 +133,7 @@ export interface CustomRace {
     name: string;
     description: string;
     speed: bigint;
+    owner: Principal;
 }
 export type CustomItemId = bigint;
 export type ClassId = bigint;

@@ -305,18 +305,23 @@ export default function SettingsPage({ actor, onBack }: Props) {
   };
   const saveRace = async () => {
     setSavingRace(true);
-    const race: CustomRace = {
-      name: raceForm.name,
-      description: raceForm.description,
-      speed: BigInt(raceForm.speed),
-      abilityBonuses: formToAbilities(raceForm),
-      traits: textToTraitArray(raceForm.traitsText, raceForm.name),
-    };
-    if (editingRace) await actor.updateRace(editingRace.id, race);
-    else await actor.addRace(race);
-    await load();
-    setShowRaceForm(false);
-    setSavingRace(false);
+    try {
+      const race: CustomRace = {
+        name: raceForm.name,
+        description: raceForm.description,
+        speed: BigInt(raceForm.speed),
+        abilityBonuses: formToAbilities(raceForm),
+        traits: textToTraitArray(raceForm.traitsText, raceForm.name),
+      };
+      if (editingRace) await actor.updateRace(editingRace.id, race);
+      else await actor.addRace(race);
+      await load();
+      setShowRaceForm(false);
+    } catch (err) {
+      alert(`Failed to save race: ${String(err)}`);
+    } finally {
+      setSavingRace(false);
+    }
   };
   const deleteRace = async (id: bigint) => {
     if (!confirm("Delete this custom race?")) return;
@@ -343,23 +348,28 @@ export default function SettingsPage({ actor, onBack }: Props) {
   };
   const saveClass = async () => {
     setSavingClass(true);
-    const proficiencies = classForm.proficienciesText
-      .split("\n")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const features = textToTraitArray(classForm.featuresText, classForm.name);
-    const cls: CustomClass = {
-      name: classForm.name,
-      hitDie: BigInt(classForm.hitDie),
-      description: classForm.description,
-      proficiencies,
-      features,
-    };
-    if (editingClass) await actor.updateClass(editingClass.id, cls);
-    else await actor.addClass(cls);
-    await load();
-    setShowClassForm(false);
-    setSavingClass(false);
+    try {
+      const proficiencies = classForm.proficienciesText
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const features = textToTraitArray(classForm.featuresText, classForm.name);
+      const cls: CustomClass = {
+        name: classForm.name,
+        hitDie: BigInt(classForm.hitDie),
+        description: classForm.description,
+        proficiencies,
+        features,
+      };
+      if (editingClass) await actor.updateClass(editingClass.id, cls);
+      else await actor.addClass(cls);
+      await load();
+      setShowClassForm(false);
+    } catch (err) {
+      alert(`Failed to save class: ${String(err)}`);
+    } finally {
+      setSavingClass(false);
+    }
   };
   const deleteClass = async (id: bigint) => {
     if (!confirm("Delete this custom class?")) return;
@@ -390,23 +400,28 @@ export default function SettingsPage({ actor, onBack }: Props) {
   };
   const saveSpell = async () => {
     setSavingSpell(true);
-    const spell: CustomSpell = {
-      name: spellForm.name,
-      level: BigInt(spellForm.level),
-      school: spellForm.school,
-      castingTime: spellForm.castingTime,
-      range: spellForm.range,
-      components: spellForm.components,
-      duration: spellForm.duration,
-      damageEffect: spellForm.damageEffect,
-      description: spellForm.description,
-      owner: {} as unknown as Principal,
-    };
-    if (editingSpell) await actor.updateCustomSpell(editingSpell.id, spell);
-    else await actor.addCustomSpell(spell);
-    await load();
-    setShowSpellForm(false);
-    setSavingSpell(false);
+    try {
+      const spell: CustomSpell = {
+        name: spellForm.name,
+        level: BigInt(spellForm.level),
+        school: spellForm.school,
+        castingTime: spellForm.castingTime,
+        range: spellForm.range,
+        components: spellForm.components,
+        duration: spellForm.duration,
+        damageEffect: spellForm.damageEffect,
+        description: spellForm.description,
+        owner: {} as unknown as Principal,
+      };
+      if (editingSpell) await actor.updateCustomSpell(editingSpell.id, spell);
+      else await actor.addCustomSpell(spell);
+      await load();
+      setShowSpellForm(false);
+    } catch (err) {
+      alert(`Failed to save spell: ${String(err)}`);
+    } finally {
+      setSavingSpell(false);
+    }
   };
   const deleteSpell = async (id: bigint) => {
     if (!confirm("Delete this custom spell?")) return;
@@ -434,20 +449,25 @@ export default function SettingsPage({ actor, onBack }: Props) {
   };
   const saveItem = async () => {
     setSavingItem(true);
-    const item: CustomItem = {
-      name: itemForm.name,
-      description: itemForm.description,
-      weight: itemForm.weight,
-      value: itemForm.value,
-      itemType: itemForm.itemType,
-      rarity: itemForm.rarity,
-      owner: {} as unknown as Principal,
-    };
-    if (editingItem) await actor.updateCustomItem(editingItem.id, item);
-    else await actor.addCustomItem(item);
-    await load();
-    setShowItemForm(false);
-    setSavingItem(false);
+    try {
+      const item: CustomItem = {
+        name: itemForm.name,
+        description: itemForm.description,
+        weight: itemForm.weight,
+        value: itemForm.value,
+        itemType: itemForm.itemType,
+        rarity: itemForm.rarity,
+        owner: {} as unknown as Principal,
+      };
+      if (editingItem) await actor.updateCustomItem(editingItem.id, item);
+      else await actor.addCustomItem(item);
+      await load();
+      setShowItemForm(false);
+    } catch (err) {
+      alert(`Failed to save item: ${String(err)}`);
+    } finally {
+      setSavingItem(false);
+    }
   };
   const deleteItem = async (id: bigint) => {
     if (!confirm("Delete this custom item?")) return;
@@ -474,20 +494,25 @@ export default function SettingsPage({ actor, onBack }: Props) {
   };
   const saveAbility = async () => {
     setSavingAbility(true);
-    const ability: CustomAbility = {
-      name: abilityForm.name,
-      description: abilityForm.description,
-      abilityType: abilityForm.abilityType,
-      uses: BigInt(abilityForm.uses),
-      rechargeOn: abilityForm.rechargeOn,
-      owner: {} as unknown as Principal,
-    };
-    if (editingAbility)
-      await actor.updateCustomAbility(editingAbility.id, ability);
-    else await actor.addCustomAbility(ability);
-    await load();
-    setShowAbilityForm(false);
-    setSavingAbility(false);
+    try {
+      const ability: CustomAbility = {
+        name: abilityForm.name,
+        description: abilityForm.description,
+        abilityType: abilityForm.abilityType,
+        uses: BigInt(abilityForm.uses),
+        rechargeOn: abilityForm.rechargeOn,
+        owner: {} as unknown as Principal,
+      };
+      if (editingAbility)
+        await actor.updateCustomAbility(editingAbility.id, ability);
+      else await actor.addCustomAbility(ability);
+      await load();
+      setShowAbilityForm(false);
+    } catch (err) {
+      alert(`Failed to save ability: ${String(err)}`);
+    } finally {
+      setSavingAbility(false);
+    }
   };
   const deleteAbility = async (id: bigint) => {
     if (!confirm("Delete this custom ability?")) return;
