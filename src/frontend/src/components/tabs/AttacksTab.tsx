@@ -107,21 +107,26 @@ export default function AttacksTab({ actor, characterId }: Props) {
 
   const addFromLibrary = async (lib: CustomAttackWithId) => {
     setAddingFromLib(lib.id);
-    const attack: CharacterPhysicalAttack = {
-      characterId,
-      name: lib.name,
-      description: lib.description,
-      damageDice: lib.damageDice,
-      attackBonus: lib.attackBonus,
-      damageType: lib.damageType,
-      range: lib.range,
-      properties: lib.properties,
-      timesUsed: 0n,
-    };
-    await actor.addCharacterPhysicalAttack(attack);
-    await load();
-    setAddingFromLib(null);
-    setShowLibrary(false);
+    try {
+      const attack: CharacterPhysicalAttack = {
+        characterId,
+        name: lib.name,
+        description: lib.description,
+        damageDice: lib.damageDice,
+        attackBonus: lib.attackBonus,
+        damageType: lib.damageType,
+        range: lib.range,
+        properties: lib.properties,
+        timesUsed: 0n,
+      };
+      await actor.addCharacterPhysicalAttack(attack);
+      await load();
+      setAddingFromLib(null);
+      setShowLibrary(false);
+    } catch (err) {
+      setAddingFromLib(null);
+      alert(`Failed to add attack: ${String(err)}`);
+    }
   };
 
   const openNew = () => {
@@ -147,22 +152,28 @@ export default function AttacksTab({ actor, characterId }: Props) {
   const handleSave = async () => {
     if (!form.name.trim()) return;
     setSaving(true);
-    const attack: CharacterPhysicalAttack = {
-      characterId,
-      name: form.name,
-      description: form.description,
-      damageDice: form.damageDice,
-      attackBonus: BigInt(form.attackBonus),
-      damageType: form.damageType,
-      range: form.range,
-      properties: form.properties,
-      timesUsed: editing ? editing.timesUsed : 0n,
-    };
-    if (editing) await actor.updateCharacterPhysicalAttack(editing.id, attack);
-    else await actor.addCharacterPhysicalAttack(attack);
-    await load();
-    setShowForm(false);
-    setSaving(false);
+    try {
+      const attack: CharacterPhysicalAttack = {
+        characterId,
+        name: form.name,
+        description: form.description,
+        damageDice: form.damageDice,
+        attackBonus: BigInt(form.attackBonus),
+        damageType: form.damageType,
+        range: form.range,
+        properties: form.properties,
+        timesUsed: editing ? editing.timesUsed : 0n,
+      };
+      if (editing)
+        await actor.updateCharacterPhysicalAttack(editing.id, attack);
+      else await actor.addCharacterPhysicalAttack(attack);
+      await load();
+      setShowForm(false);
+    } catch (err) {
+      alert(`Failed to save attack: ${String(err)}`);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (id: bigint) => {
