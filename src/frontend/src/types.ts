@@ -10,6 +10,8 @@ export type CustomSpellId = bigint;
 export type CustomItemId = bigint;
 export type CustomAbilityId = bigint;
 export type CharacterAbilityId = bigint;
+export type CustomPhysicalAttackId = bigint;
+export type CharacterPhysicalAttackId = bigint;
 
 export interface Abilities {
   str: bigint;
@@ -160,6 +162,29 @@ export interface CharacterAbility {
   rechargeOn: string;
 }
 
+export interface CustomPhysicalAttack {
+  name: string;
+  description: string;
+  damageDice: string;
+  attackBonus: bigint;
+  damageType: string;
+  range: string;
+  properties: string;
+  owner: Principal;
+}
+
+export interface CharacterPhysicalAttack {
+  characterId: CharacterId;
+  name: string;
+  description: string;
+  damageDice: string;
+  attackBonus: bigint;
+  damageType: string;
+  range: string;
+  properties: string;
+  timesUsed: bigint;
+}
+
 export interface UserProfile {
   name: string;
 }
@@ -174,6 +199,12 @@ export interface DndBackend {
   addCustomItem(item: CustomItem): Promise<CustomItemId>;
   addCustomAbility(ability: CustomAbility): Promise<CustomAbilityId>;
   addCharacterAbility(ability: CharacterAbility): Promise<CharacterAbilityId>;
+  addCustomPhysicalAttack(
+    attack: CustomPhysicalAttack,
+  ): Promise<CustomPhysicalAttackId>;
+  addCharacterPhysicalAttack(
+    attack: CharacterPhysicalAttack,
+  ): Promise<CharacterPhysicalAttackId>;
   createCharacter(character: Character): Promise<CharacterId>;
   deleteCharacter(id: CharacterId): Promise<void>;
   deleteClass(id: ClassId): Promise<void>;
@@ -185,15 +216,23 @@ export interface DndBackend {
   deleteCustomItem(id: CustomItemId): Promise<void>;
   deleteCustomAbility(id: CustomAbilityId): Promise<void>;
   deleteCharacterAbility(id: CharacterAbilityId): Promise<void>;
+  deleteCustomPhysicalAttack(id: CustomPhysicalAttackId): Promise<void>;
+  deleteCharacterPhysicalAttack(id: CharacterPhysicalAttackId): Promise<void>;
   getAllCharacters(): Promise<Array<[CharacterId, Character]>>;
   getAllClasses(): Promise<Array<[ClassId, CustomClass]>>;
   getAllRaces(): Promise<Array<[RaceId, CustomRace]>>;
   getAllCustomSpells(): Promise<Array<[CustomSpellId, CustomSpell]>>;
   getAllCustomItems(): Promise<Array<[CustomItemId, CustomItem]>>;
   getAllCustomAbilities(): Promise<Array<[CustomAbilityId, CustomAbility]>>;
+  getAllCustomPhysicalAttacks(): Promise<
+    Array<[CustomPhysicalAttackId, CustomPhysicalAttack]>
+  >;
   getAbilitiesByCharacter(
     characterId: CharacterId,
   ): Promise<Array<[CharacterAbilityId, CharacterAbility]>>;
+  getPhysicalAttacksByCharacter(
+    characterId: CharacterId,
+  ): Promise<Array<[CharacterPhysicalAttackId, CharacterPhysicalAttack]>>;
   getCallerUserProfile(): Promise<UserProfile | null>;
   getCharacter(id: CharacterId): Promise<Character | null>;
   getItemsByCharacter(
@@ -224,5 +263,13 @@ export interface DndBackend {
   updateCharacterAbility(
     id: CharacterAbilityId,
     ability: CharacterAbility,
+  ): Promise<void>;
+  updateCustomPhysicalAttack(
+    id: CustomPhysicalAttackId,
+    attack: CustomPhysicalAttack,
+  ): Promise<void>;
+  updateCharacterPhysicalAttack(
+    id: CharacterPhysicalAttackId,
+    attack: CharacterPhysicalAttack,
   ): Promise<void>;
 }

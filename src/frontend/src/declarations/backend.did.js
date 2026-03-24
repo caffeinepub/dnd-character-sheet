@@ -19,6 +19,18 @@ export const CharacterAbility = IDL.Record({
   'characterId' : CharacterId,
 });
 export const CharacterAbilityId = IDL.Nat;
+export const CharacterPhysicalAttack = IDL.Record({
+  'name' : IDL.Text,
+  'attackBonus' : IDL.Int,
+  'description' : IDL.Text,
+  'properties' : IDL.Text,
+  'timesUsed' : IDL.Nat,
+  'damageDice' : IDL.Text,
+  'damageType' : IDL.Text,
+  'characterId' : CharacterId,
+  'range' : IDL.Text,
+});
+export const CharacterPhysicalAttackId = IDL.Nat;
 export const Trait = IDL.Record({
   'source' : IDL.Text,
   'name' : IDL.Text,
@@ -52,6 +64,17 @@ export const CustomItem = IDL.Record({
   'rarity' : IDL.Text,
 });
 export const CustomItemId = IDL.Nat;
+export const CustomPhysicalAttack = IDL.Record({
+  'owner' : IDL.Principal,
+  'name' : IDL.Text,
+  'attackBonus' : IDL.Int,
+  'description' : IDL.Text,
+  'properties' : IDL.Text,
+  'damageDice' : IDL.Text,
+  'damageType' : IDL.Text,
+  'range' : IDL.Text,
+});
+export const CustomPhysicalAttackId = IDL.Nat;
 export const CustomSpell = IDL.Record({
   'duration' : IDL.Text,
   'owner' : IDL.Principal,
@@ -166,9 +189,19 @@ export const idlService = IDL.Service({
       [CharacterAbilityId],
       [],
     ),
+  'addCharacterPhysicalAttack' : IDL.Func(
+      [CharacterPhysicalAttack],
+      [CharacterPhysicalAttackId],
+      [],
+    ),
   'addClass' : IDL.Func([CustomClass], [ClassId], []),
   'addCustomAbility' : IDL.Func([CustomAbility], [CustomAbilityId], []),
   'addCustomItem' : IDL.Func([CustomItem], [CustomItemId], []),
+  'addCustomPhysicalAttack' : IDL.Func(
+      [CustomPhysicalAttack],
+      [CustomPhysicalAttackId],
+      [],
+    ),
   'addCustomSpell' : IDL.Func([CustomSpell], [CustomSpellId], []),
   'addItem' : IDL.Func([InventoryItem], [InventoryItemId], []),
   'addRace' : IDL.Func([CustomRace], [RaceId], []),
@@ -178,9 +211,15 @@ export const idlService = IDL.Service({
   'createCharacter' : IDL.Func([Character], [CharacterId], []),
   'deleteCharacter' : IDL.Func([CharacterId], [], []),
   'deleteCharacterAbility' : IDL.Func([CharacterAbilityId], [], []),
+  'deleteCharacterPhysicalAttack' : IDL.Func(
+      [CharacterPhysicalAttackId],
+      [],
+      [],
+    ),
   'deleteClass' : IDL.Func([ClassId], [], []),
   'deleteCustomAbility' : IDL.Func([CustomAbilityId], [], []),
   'deleteCustomItem' : IDL.Func([CustomItemId], [], []),
+  'deleteCustomPhysicalAttack' : IDL.Func([CustomPhysicalAttackId], [], []),
   'deleteCustomSpell' : IDL.Func([CustomSpellId], [], []),
   'deleteItem' : IDL.Func([InventoryItemId], [], []),
   'deleteRace' : IDL.Func([RaceId], [], []),
@@ -212,6 +251,11 @@ export const idlService = IDL.Service({
       [IDL.Vec(IDL.Tuple(CustomItemId, CustomItem))],
       ['query'],
     ),
+  'getAllCustomPhysicalAttacks' : IDL.Func(
+      [],
+      [IDL.Vec(IDL.Tuple(CustomPhysicalAttackId, CustomPhysicalAttack))],
+      ['query'],
+    ),
   'getAllCustomSpells' : IDL.Func(
       [],
       [IDL.Vec(IDL.Tuple(CustomSpellId, CustomSpell))],
@@ -233,6 +277,11 @@ export const idlService = IDL.Service({
   'getItemsByCharacter' : IDL.Func(
       [CharacterId],
       [IDL.Vec(IDL.Tuple(InventoryItemId, InventoryItem))],
+      ['query'],
+    ),
+  'getPhysicalAttacksByCharacter' : IDL.Func(
+      [CharacterId],
+      [IDL.Vec(IDL.Tuple(CharacterPhysicalAttackId, CharacterPhysicalAttack))],
       ['query'],
     ),
   'getSettings' : IDL.Func([], [Settings], ['query']),
@@ -259,9 +308,19 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'updateCharacterPhysicalAttack' : IDL.Func(
+      [CharacterPhysicalAttackId, CharacterPhysicalAttack],
+      [],
+      [],
+    ),
   'updateClass' : IDL.Func([ClassId, CustomClass], [], []),
   'updateCustomAbility' : IDL.Func([CustomAbilityId, CustomAbility], [], []),
   'updateCustomItem' : IDL.Func([CustomItemId, CustomItem], [], []),
+  'updateCustomPhysicalAttack' : IDL.Func(
+      [CustomPhysicalAttackId, CustomPhysicalAttack],
+      [],
+      [],
+    ),
   'updateCustomSpell' : IDL.Func([CustomSpellId, CustomSpell], [], []),
   'updateItem' : IDL.Func([InventoryItemId, InventoryItem], [], []),
   'updateRace' : IDL.Func([RaceId, CustomRace], [], []),
@@ -284,6 +343,18 @@ export const idlFactory = ({ IDL }) => {
     'characterId' : CharacterId,
   });
   const CharacterAbilityId = IDL.Nat;
+  const CharacterPhysicalAttack = IDL.Record({
+    'name' : IDL.Text,
+    'attackBonus' : IDL.Int,
+    'description' : IDL.Text,
+    'properties' : IDL.Text,
+    'timesUsed' : IDL.Nat,
+    'damageDice' : IDL.Text,
+    'damageType' : IDL.Text,
+    'characterId' : CharacterId,
+    'range' : IDL.Text,
+  });
+  const CharacterPhysicalAttackId = IDL.Nat;
   const Trait = IDL.Record({
     'source' : IDL.Text,
     'name' : IDL.Text,
@@ -317,6 +388,17 @@ export const idlFactory = ({ IDL }) => {
     'rarity' : IDL.Text,
   });
   const CustomItemId = IDL.Nat;
+  const CustomPhysicalAttack = IDL.Record({
+    'owner' : IDL.Principal,
+    'name' : IDL.Text,
+    'attackBonus' : IDL.Int,
+    'description' : IDL.Text,
+    'properties' : IDL.Text,
+    'damageDice' : IDL.Text,
+    'damageType' : IDL.Text,
+    'range' : IDL.Text,
+  });
+  const CustomPhysicalAttackId = IDL.Nat;
   const CustomSpell = IDL.Record({
     'duration' : IDL.Text,
     'owner' : IDL.Principal,
@@ -431,9 +513,19 @@ export const idlFactory = ({ IDL }) => {
         [CharacterAbilityId],
         [],
       ),
+    'addCharacterPhysicalAttack' : IDL.Func(
+        [CharacterPhysicalAttack],
+        [CharacterPhysicalAttackId],
+        [],
+      ),
     'addClass' : IDL.Func([CustomClass], [ClassId], []),
     'addCustomAbility' : IDL.Func([CustomAbility], [CustomAbilityId], []),
     'addCustomItem' : IDL.Func([CustomItem], [CustomItemId], []),
+    'addCustomPhysicalAttack' : IDL.Func(
+        [CustomPhysicalAttack],
+        [CustomPhysicalAttackId],
+        [],
+      ),
     'addCustomSpell' : IDL.Func([CustomSpell], [CustomSpellId], []),
     'addItem' : IDL.Func([InventoryItem], [InventoryItemId], []),
     'addRace' : IDL.Func([CustomRace], [RaceId], []),
@@ -443,9 +535,15 @@ export const idlFactory = ({ IDL }) => {
     'createCharacter' : IDL.Func([Character], [CharacterId], []),
     'deleteCharacter' : IDL.Func([CharacterId], [], []),
     'deleteCharacterAbility' : IDL.Func([CharacterAbilityId], [], []),
+    'deleteCharacterPhysicalAttack' : IDL.Func(
+        [CharacterPhysicalAttackId],
+        [],
+        [],
+      ),
     'deleteClass' : IDL.Func([ClassId], [], []),
     'deleteCustomAbility' : IDL.Func([CustomAbilityId], [], []),
     'deleteCustomItem' : IDL.Func([CustomItemId], [], []),
+    'deleteCustomPhysicalAttack' : IDL.Func([CustomPhysicalAttackId], [], []),
     'deleteCustomSpell' : IDL.Func([CustomSpellId], [], []),
     'deleteItem' : IDL.Func([InventoryItemId], [], []),
     'deleteRace' : IDL.Func([RaceId], [], []),
@@ -477,6 +575,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(IDL.Tuple(CustomItemId, CustomItem))],
         ['query'],
       ),
+    'getAllCustomPhysicalAttacks' : IDL.Func(
+        [],
+        [IDL.Vec(IDL.Tuple(CustomPhysicalAttackId, CustomPhysicalAttack))],
+        ['query'],
+      ),
     'getAllCustomSpells' : IDL.Func(
         [],
         [IDL.Vec(IDL.Tuple(CustomSpellId, CustomSpell))],
@@ -498,6 +601,15 @@ export const idlFactory = ({ IDL }) => {
     'getItemsByCharacter' : IDL.Func(
         [CharacterId],
         [IDL.Vec(IDL.Tuple(InventoryItemId, InventoryItem))],
+        ['query'],
+      ),
+    'getPhysicalAttacksByCharacter' : IDL.Func(
+        [CharacterId],
+        [
+          IDL.Vec(
+            IDL.Tuple(CharacterPhysicalAttackId, CharacterPhysicalAttack)
+          ),
+        ],
         ['query'],
       ),
     'getSettings' : IDL.Func([], [Settings], ['query']),
@@ -524,9 +636,19 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'updateCharacterPhysicalAttack' : IDL.Func(
+        [CharacterPhysicalAttackId, CharacterPhysicalAttack],
+        [],
+        [],
+      ),
     'updateClass' : IDL.Func([ClassId, CustomClass], [], []),
     'updateCustomAbility' : IDL.Func([CustomAbilityId, CustomAbility], [], []),
     'updateCustomItem' : IDL.Func([CustomItemId, CustomItem], [], []),
+    'updateCustomPhysicalAttack' : IDL.Func(
+        [CustomPhysicalAttackId, CustomPhysicalAttack],
+        [],
+        [],
+      ),
     'updateCustomSpell' : IDL.Func([CustomSpellId, CustomSpell], [], []),
     'updateItem' : IDL.Func([InventoryItemId, InventoryItem], [], []),
     'updateRace' : IDL.Func([RaceId, CustomRace], [], []),

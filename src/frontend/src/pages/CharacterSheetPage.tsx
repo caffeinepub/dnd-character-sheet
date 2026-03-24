@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import NewCharacterDialog from "../components/NewCharacterDialog";
 import AbilitiesTab from "../components/tabs/AbilitiesTab";
+import AttacksTab from "../components/tabs/AttacksTab";
 import FeaturesTab from "../components/tabs/FeaturesTab";
 import InventoryTab from "../components/tabs/InventoryTab";
 import NotesTab from "../components/tabs/NotesTab";
@@ -20,6 +21,7 @@ type Tab =
   | "inventory"
   | "features"
   | "abilities"
+  | "attacks"
   | "notes";
 
 export default function CharacterSheetPage({
@@ -82,6 +84,7 @@ export default function CharacterSheetPage({
     { id: "inventory", label: "Inventory" },
     { id: "features", label: "Features" },
     { id: "abilities", label: "Abilities" },
+    { id: "attacks", label: "Attacks" },
     { id: "notes", label: "Notes" },
   ];
 
@@ -234,6 +237,9 @@ export default function CharacterSheetPage({
       )}
       {tab === "abilities" && (
         <AbilitiesTab actor={actor} characterId={characterId} />
+      )}
+      {tab === "attacks" && (
+        <AttacksTab actor={actor} characterId={characterId} />
       )}
       {tab === "notes" && (
         <NotesTab

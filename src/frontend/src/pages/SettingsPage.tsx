@@ -5,6 +5,7 @@ import type {
   CustomAbility,
   CustomClass,
   CustomItem,
+  CustomPhysicalAttack,
   CustomRace,
   CustomSpell,
   DndBackend,
@@ -21,6 +22,7 @@ type ClassWithId = { id: bigint } & CustomClass;
 type SpellWithId = { id: bigint } & CustomSpell;
 type ItemWithId = { id: bigint } & CustomItem;
 type AbilityWithId = { id: bigint } & CustomAbility;
+type AttackWithId = { id: bigint } & CustomPhysicalAttack;
 
 // Form state uses simple primitives for editing; we convert on save
 interface RaceFormState {
@@ -131,13 +133,24 @@ const EMPTY_ABILITY = {
   rechargeOn: "",
 };
 
+const EMPTY_ATTACK = {
+  name: "",
+  description: "",
+  damageDice: "",
+  attackBonus: 0,
+  damageType: "Bludgeoning",
+  range: "",
+  properties: "",
+};
+
 type Section =
   | "general"
   | "races"
   | "classes"
   | "spells"
   | "items"
-  | "abilities";
+  | "abilities"
+  | "attacks";
 
 // Helpers: convert between form state and backend types
 function abilitiesToForm(ab: Abilities) {
@@ -213,6 +226,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
   const [customSpells, setCustomSpells] = useState<SpellWithId[]>([]);
   const [customItems, setCustomItems] = useState<ItemWithId[]>([]);
   const [customAbilities, setCustomAbilities] = useState<AbilityWithId[]>([]);
+  const [customAttacks, setCustomAttacks] = useState<AttackWithId[]>([]);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<Section>("general");
 
@@ -250,21 +264,35 @@ export default function SettingsPage({ actor, onBack }: Props) {
   const [abilityForm, setAbilityForm] = useState({ ...EMPTY_ABILITY });
   const [savingAbility, setSavingAbility] = useState(false);
 
+  // Custom attack form
+  const [showAttackForm, setShowAttackForm] = useState(false);
+  const [editingAttack, setEditingAttack] = useState<AttackWithId | null>(null);
+  const [attackForm, setAttackForm] = useState({ ...EMPTY_ATTACK });
+  const [savingAttack, setSavingAttack] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
-    const [settings, raceData, classData, spellData, itemData, abilityData] =
-      await Promise.all([
-        actor.getSettings(),
-        actor.getAllRaces() as unknown as Promise<[bigint, CustomRace][]>,
-        actor.getAllClasses() as unknown as Promise<[bigint, CustomClass][]>,
-        actor.getAllCustomSpells() as unknown as Promise<
-          [bigint, CustomSpell][]
-        >,
-        actor.getAllCustomItems() as unknown as Promise<[bigint, CustomItem][]>,
-        actor.getAllCustomAbilities() as unknown as Promise<
-          [bigint, CustomAbility][]
-        >,
-      ]);
+    const [
+      settings,
+      raceData,
+      classData,
+      spellData,
+      itemData,
+      abilityData,
+      attackData,
+    ] = await Promise.all([
+      actor.getSettings(),
+      actor.getAllRaces() as unknown as Promise<[bigint, CustomRace][]>,
+      actor.getAllClasses() as unknown as Promise<[bigint, CustomClass][]>,
+      actor.getAllCustomSpells() as unknown as Promise<[bigint, CustomSpell][]>,
+      actor.getAllCustomItems() as unknown as Promise<[bigint, CustomItem][]>,
+      actor.getAllCustomAbilities() as unknown as Promise<
+        [bigint, CustomAbility][]
+      >,
+      actor.getAllCustomPhysicalAttacks() as unknown as Promise<
+        [bigint, CustomPhysicalAttack][]
+      >,
+    ]);
     setMaxLevel(Number(settings.maxLevel));
     setSavedMaxLevel(Number(settings.maxLevel));
     setRaces(raceData.map(([id, r]) => ({ id, ...r })));
@@ -272,6 +300,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
     setCustomSpells(spellData.map(([id, s]) => ({ id, ...s })));
     setCustomItems(itemData.map(([id, i]) => ({ id, ...i })));
     setCustomAbilities(abilityData.map(([id, a]) => ({ id, ...a })));
+    setCustomAttacks(attackData.map(([id, a]) => ({ id, ...a })));
     setLoading(false);
   }, [actor]);
 
@@ -520,6 +549,55 @@ export default function SettingsPage({ actor, onBack }: Props) {
     await load();
   };
 
+  // Custom Attack CRUD
+  const openNewAttack = () => {
+    setEditingAttack(null);
+    setAttackForm({ ...EMPTY_ATTACK });
+    setShowAttackForm(true);
+  };
+  const openEditAttack = (a: AttackWithId) => {
+    setEditingAttack(a);
+    setAttackForm({
+      name: a.name,
+      description: a.description,
+      damageDice: a.damageDice,
+      attackBonus: Number(a.attackBonus),
+      damageType: a.damageType,
+      range: a.range,
+      properties: a.properties,
+    });
+    setShowAttackForm(true);
+  };
+  const saveAttack = async () => {
+    setSavingAttack(true);
+    try {
+      const attack: CustomPhysicalAttack = {
+        name: attackForm.name,
+        description: attackForm.description,
+        damageDice: attackForm.damageDice,
+        attackBonus: BigInt(attackForm.attackBonus),
+        damageType: attackForm.damageType,
+        range: attackForm.range,
+        properties: attackForm.properties,
+        owner: {} as unknown as Principal,
+      };
+      if (editingAttack)
+        await actor.updateCustomPhysicalAttack(editingAttack.id, attack);
+      else await actor.addCustomPhysicalAttack(attack);
+      await load();
+      setShowAttackForm(false);
+    } catch (err) {
+      alert(`Failed to save attack: ${String(err)}`);
+    } finally {
+      setSavingAttack(false);
+    }
+  };
+  const deleteAttack = async (id: bigint) => {
+    if (!confirm("Delete this custom attack?")) return;
+    await actor.deleteCustomPhysicalAttack(id);
+    await load();
+  };
+
   const tabs: { id: Section; label: string }[] = [
     { id: "general", label: "General" },
     { id: "races", label: `Custom Races (${races.length})` },
@@ -527,6 +605,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
     { id: "spells", label: `Custom Spells (${customSpells.length})` },
     { id: "items", label: `Custom Items (${customItems.length})` },
     { id: "abilities", label: `Custom Abilities (${customAbilities.length})` },
+    { id: "attacks", label: `Custom Attacks (${customAttacks.length})` },
   ];
 
   const tabStyle = (id: Section) => ({
@@ -1547,6 +1626,162 @@ export default function SettingsPage({ actor, onBack }: Props) {
         </div>
       )}
 
+      {section === "attacks" && (
+        <div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 16,
+            }}
+          >
+            <p style={{ color: "var(--ds-muted)", fontSize: 14 }}>
+              Your homebrew physical attack library. Use "Library" in the
+              Attacks tab to add these to a character.
+            </p>
+            <button
+              type="button"
+              className="ds-btn-primary"
+              onClick={openNewAttack}
+              style={{ fontFamily: "Cinzel, serif", fontSize: 13 }}
+              data-ocid="attacks.primary_button"
+            >
+              + Add Attack
+            </button>
+          </div>
+          {customAttacks.length === 0 ? (
+            <p
+              style={{
+                color: "var(--ds-muted)",
+                textAlign: "center",
+                marginTop: 32,
+              }}
+              data-ocid="attacks.empty_state"
+            >
+              No custom physical attacks yet. Create your homebrew attacks here!
+            </p>
+          ) : (
+            customAttacks.map((attack, i) => (
+              <div
+                key={attack.id.toString()}
+                className="ds-card2"
+                style={{ padding: 14, marginBottom: 8 }}
+                data-ocid={`attacks.item.${i + 1}`}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        marginBottom: 4,
+                      }}
+                    >
+                      <span
+                        style={{ color: "var(--ds-text)", fontWeight: 600 }}
+                      >
+                        {attack.name}
+                      </span>
+                      {attack.damageDice && (
+                        <span
+                          style={{
+                            color: "var(--ds-gold)",
+                            fontSize: 11,
+                            backgroundColor: "rgba(201,163,90,0.1)",
+                            padding: "2px 6px",
+                            borderRadius: 10,
+                          }}
+                        >
+                          {attack.damageDice} {attack.damageType}
+                        </span>
+                      )}
+                      <span
+                        style={{
+                          color:
+                            Number(attack.attackBonus) >= 0
+                              ? "#4CAF50"
+                              : "#e57373",
+                          fontSize: 11,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {Number(attack.attackBonus) >= 0 ? "+" : ""}
+                        {Number(attack.attackBonus).toString()} to hit
+                      </span>
+                      {attack.range && (
+                        <span
+                          style={{
+                            color: "var(--ds-muted)",
+                            fontSize: 11,
+                            border: "1px solid var(--ds-border)",
+                            borderRadius: 6,
+                            padding: "1px 6px",
+                          }}
+                        >
+                          {attack.range}
+                        </span>
+                      )}
+                    </div>
+                    {attack.properties && (
+                      <p
+                        style={{
+                          color: "var(--ds-muted)",
+                          fontSize: 12,
+                          margin: "2px 0",
+                        }}
+                      >
+                        Properties: {attack.properties}
+                      </p>
+                    )}
+                    {attack.description && (
+                      <p
+                        style={{
+                          color: "var(--ds-muted)",
+                          fontSize: 13,
+                          margin: 0,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {attack.description}
+                      </p>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginLeft: 12 }}>
+                    <button
+                      type="button"
+                      className="ds-btn-ghost"
+                      style={{ fontSize: 12 }}
+                      onClick={() => openEditAttack(attack)}
+                      data-ocid={`attacks.edit_button.${i + 1}`}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="ds-btn-ghost"
+                      style={{ fontSize: 12, color: "#c0392b" }}
+                      onClick={() => deleteAttack(attack.id)}
+                      data-ocid={`attacks.delete_button.${i + 1}`}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
       {/* Custom Spell Form Modal */}
       {showSpellForm && (
         <Modal
@@ -1847,6 +2082,137 @@ export default function SettingsPage({ actor, onBack }: Props) {
             saving={savingAbility}
             disabled={!abilityForm.name.trim()}
             label={editingAbility ? "Save Changes" : "Add Ability"}
+          />
+        </Modal>
+      )}
+
+      {/* Custom Attack Form Modal */}
+      {showAttackForm && (
+        <Modal
+          onClose={() => setShowAttackForm(false)}
+          title={editingAttack ? "Edit Custom Attack" : "New Custom Attack"}
+        >
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
+          >
+            <div style={{ gridColumn: "1 / -1" }}>
+              <Field label="Attack Name *">
+                <input
+                  className="ds-input"
+                  value={attackForm.name}
+                  onChange={(e) =>
+                    setAttackForm((p) => ({ ...p, name: e.target.value }))
+                  }
+                  placeholder="e.g. Haymaker, Grapple, Headbutt"
+                  data-ocid="attacks.input"
+                />
+              </Field>
+            </div>
+            <Field label="Damage Dice">
+              <input
+                className="ds-input"
+                value={attackForm.damageDice}
+                onChange={(e) =>
+                  setAttackForm((p) => ({ ...p, damageDice: e.target.value }))
+                }
+                placeholder="1d6"
+                data-ocid="attacks.input"
+              />
+            </Field>
+            <Field label="Attack Bonus">
+              <input
+                className="ds-input"
+                type="number"
+                value={attackForm.attackBonus}
+                onChange={(e) =>
+                  setAttackForm((p) => ({
+                    ...p,
+                    attackBonus: Number.parseInt(e.target.value) || 0,
+                  }))
+                }
+                data-ocid="attacks.input"
+              />
+            </Field>
+            <Field label="Damage Type">
+              <select
+                className="ds-input"
+                value={attackForm.damageType}
+                onChange={(e) =>
+                  setAttackForm((p) => ({ ...p, damageType: e.target.value }))
+                }
+                data-ocid="attacks.select"
+              >
+                {[
+                  "Bludgeoning",
+                  "Piercing",
+                  "Slashing",
+                  "Fire",
+                  "Cold",
+                  "Lightning",
+                  "Poison",
+                  "Acid",
+                  "Necrotic",
+                  "Radiant",
+                  "Force",
+                  "Psychic",
+                  "Thunder",
+                  "Other",
+                ].map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Range">
+              <input
+                className="ds-input"
+                value={attackForm.range}
+                onChange={(e) =>
+                  setAttackForm((p) => ({ ...p, range: e.target.value }))
+                }
+                placeholder="5 ft (Melee)"
+                data-ocid="attacks.input"
+              />
+            </Field>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <Field label="Properties">
+                <input
+                  className="ds-input"
+                  value={attackForm.properties}
+                  onChange={(e) =>
+                    setAttackForm((p) => ({ ...p, properties: e.target.value }))
+                  }
+                  placeholder="Finesse, Light"
+                  data-ocid="attacks.input"
+                />
+              </Field>
+            </div>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <Field label="Description">
+                <textarea
+                  className="ds-input"
+                  value={attackForm.description}
+                  onChange={(e) =>
+                    setAttackForm((p) => ({
+                      ...p,
+                      description: e.target.value,
+                    }))
+                  }
+                  rows={3}
+                  style={{ resize: "vertical" }}
+                  placeholder="Describe the attack..."
+                  data-ocid="attacks.textarea"
+                />
+              </Field>
+            </div>
+          </div>
+          <ModalFooter
+            onClose={() => setShowAttackForm(false)}
+            onSave={saveAttack}
+            saving={savingAttack}
+            disabled={!attackForm.name.trim()}
+            label={editingAttack ? "Save Changes" : "Add Attack"}
           />
         </Modal>
       )}

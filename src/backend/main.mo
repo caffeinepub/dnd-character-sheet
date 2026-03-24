@@ -5,7 +5,6 @@ import Nat "mo:core/Nat";
 import Principal "mo:core/Principal";
 import Runtime "mo:core/Runtime";
 
-
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
 
@@ -21,6 +20,10 @@ actor {
   public type ClassId = Nat;
   public type CustomSpellId = Nat;
   public type CustomItemId = Nat;
+  public type CustomAbilityId = Nat;
+  public type CharacterAbilityId = Nat;
+  public type CustomPhysicalAttackId = Nat;
+  public type CharacterPhysicalAttackId = Nat;
 
   public type Character = {
     name : Text;
@@ -156,9 +159,6 @@ actor {
     name : Text;
   };
 
-  public type CustomAbilityId = Nat;
-  public type CharacterAbilityId = Nat;
-
   public type CustomAbility = {
     name : Text;
     description : Text;
@@ -178,6 +178,29 @@ actor {
     rechargeOn : Text;
   };
 
+  public type CustomPhysicalAttack = {
+    name : Text;
+    description : Text;
+    damageDice : Text;
+    attackBonus : Int;
+    damageType : Text;
+    range : Text;
+    properties : Text;
+    owner : Principal;
+  };
+
+  public type CharacterPhysicalAttack = {
+    characterId : CharacterId;
+    name : Text;
+    description : Text;
+    damageDice : Text;
+    attackBonus : Int;
+    damageType : Text;
+    range : Text;
+    properties : Text;
+    timesUsed : Nat;
+  };
+
   // Initialize the user system state
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
@@ -191,10 +214,10 @@ actor {
   var nextClassId = 1;
   var nextCustomSpellId = 1;
   var nextCustomItemId = 1;
-
   var nextCustomAbilityId = 1;
   var nextCharacterAbilityId = 1;
-
+  var nextCustomPhysicalAttackId = 1;
+  var nextCharacterPhysicalAttackId = 1;
   let characters = Map.empty<CharacterId, Character>();
   let spells = Map.empty<SpellId, Spell>();
   let traits = Map.empty<TraitId, Trait>();
@@ -205,11 +228,12 @@ actor {
   let customItems = Map.empty<CustomItemId, CustomItem>();
   var settings : Settings = { maxLevel = 10000 };
   let userProfiles = Map.empty<Principal, UserProfile>();
-
   let raceOwners = Map.empty<RaceId, Principal>();
   let classOwners = Map.empty<ClassId, Principal>();
   let customAbilities = Map.empty<CustomAbilityId, CustomAbility>();
   let characterAbilities = Map.empty<CharacterAbilityId, CharacterAbility>();
+  let customPhysicalAttacks = Map.empty<CustomPhysicalAttackId, CustomPhysicalAttack>();
+  let characterPhysicalAttacks = Map.empty<CharacterPhysicalAttackId, CharacterPhysicalAttack>();
 
   // Helper: verify caller is authenticated (not anonymous)
   private func requireAuth(caller : Principal) {
@@ -769,6 +793,102 @@ actor {
           Runtime.trap("Unauthorized: Cannot delete abilities you do not own");
         };
         characterAbilities.remove(id);
+      };
+    };
+  };
+
+  // Custom Physical Attacks (user CRUD, owner-scoped)
+  public shared ({ caller }) func addCustomPhysicalAttack(attack : CustomPhysicalAttack) : async CustomPhysicalAttackId {
+    requireAuth(caller);
+    let id = nextCustomPhysicalAttackId;
+    nextCustomPhysicalAttackId += 1;
+    customPhysicalAttacks.add(id, { attack with owner = caller });
+    id;
+  };
+
+  public query ({ caller }) func getAllCustomPhysicalAttacks() : async [(CustomPhysicalAttackId, CustomPhysicalAttack)] {
+    requireAuth(caller);
+
+    let resultList = List.empty<(CustomPhysicalAttackId, CustomPhysicalAttack)>();
+    for ((id, attack) in customPhysicalAttacks.entries()) {
+      if (Principal.equal(attack.owner, caller)) { resultList.add((id, attack)) };
+    };
+    resultList.toArray();
+  };
+
+  public shared ({ caller }) func updateCustomPhysicalAttack(id : CustomPhysicalAttackId, attack : CustomPhysicalAttack) : async () {
+    requireAuth(caller);
+    switch (customPhysicalAttacks.get(id)) {
+      case (null) { Runtime.trap("Custom physical attack not found") };
+      case (?existing) {
+        if (not Principal.equal(existing.owner, caller) and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Cannot edit attacks you do not own");
+        };
+        customPhysicalAttacks.add(id, { attack with owner = existing.owner });
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteCustomPhysicalAttack(id : CustomPhysicalAttackId) : async () {
+    requireAuth(caller);
+    switch (customPhysicalAttacks.get(id)) {
+      case (null) { Runtime.trap("Custom physical attack not found") };
+      case (?existing) {
+        if (not Principal.equal(existing.owner, caller) and not AccessControl.isAdmin(accessControlState, caller)) {
+          Runtime.trap("Unauthorized: Cannot delete attacks you do not own");
+        };
+        customPhysicalAttacks.remove(id);
+      };
+    };
+  };
+
+  // Character Physical Attacks (character-scoped CRUD)
+  public shared ({ caller }) func addCharacterPhysicalAttack(attack : CharacterPhysicalAttack) : async CharacterPhysicalAttackId {
+    requireAuth(caller);
+    if (not verifyCharacterOwnership(caller, attack.characterId)) {
+      Runtime.trap("Unauthorized: Cannot add attacks to characters you do not own");
+    };
+    let id = nextCharacterPhysicalAttackId;
+    nextCharacterPhysicalAttackId += 1;
+    characterPhysicalAttacks.add(id, attack);
+    id;
+  };
+
+  public query ({ caller }) func getPhysicalAttacksByCharacter(characterId : CharacterId) : async [(CharacterPhysicalAttackId, CharacterPhysicalAttack)] {
+    requireAuth(caller);
+    if (not verifyCharacterOwnership(caller, characterId)) {
+      Runtime.trap("Unauthorized: Cannot view attacks for characters you do not own");
+    };
+
+    let resultList = List.empty<(CharacterPhysicalAttackId, CharacterPhysicalAttack)>();
+    for ((id, attack) in characterPhysicalAttacks.entries()) {
+      if (attack.characterId == characterId) { resultList.add((id, attack)) };
+    };
+    resultList.toArray();
+  };
+
+  public shared ({ caller }) func updateCharacterPhysicalAttack(id : CharacterPhysicalAttackId, attack : CharacterPhysicalAttack) : async () {
+    requireAuth(caller);
+    switch (characterPhysicalAttacks.get(id)) {
+      case (null) { Runtime.trap("Character physical attack not found") };
+      case (?existing) {
+        if (not verifyCharacterOwnership(caller, existing.characterId)) {
+          Runtime.trap("Unauthorized: Cannot modify attacks you do not own");
+        };
+        characterPhysicalAttacks.add(id, attack);
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteCharacterPhysicalAttack(id : CharacterPhysicalAttackId) : async () {
+    requireAuth(caller);
+    switch (characterPhysicalAttacks.get(id)) {
+      case (null) { Runtime.trap("Character physical attack not found") };
+      case (?attack) {
+        if (not verifyCharacterOwnership(caller, attack.characterId)) {
+          Runtime.trap("Unauthorized: Cannot delete attacks you do not own");
+        };
+        characterPhysicalAttacks.remove(id);
       };
     };
   };

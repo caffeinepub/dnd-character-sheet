@@ -1,27 +1,32 @@
-# DungeonScribe
+# DungeonScribe - Physical Attacks Feature
 
 ## Current State
-Full backend with characters, spells, inventory, traits, custom spells, custom items, races, classes. No abilities system exists yet.
+The app has:
+- Custom Abilities system (global library + per-character tracking)
+- Settings page with CRUD for Custom Spells, Items, Abilities, Races, Classes
+- Character sheet with tabs: Stats, Spells, Inventory, Features, Notes, Items, Abilities
+- Backend with owner-scoped custom content
 
 ## Requested Changes (Diff)
 
 ### Add
-- `CustomAbility` type: name, description, abilityType (passive/active/reaction), uses (optional), rechargeOn, owner Principal
-- `CharacterAbility` type: characterId, name, description, abilityType, uses, usesRemaining, rechargeOn
-- Backend CRUD for custom ability library (owner-scoped, like custom spells)
-- Backend CRUD for per-character abilities (like spells per character)
-- Abilities tab on each character sheet: list character abilities, "Add from Library" button, manual add/edit/delete
-- Custom Abilities section in Settings: global library CRUD
+- `CustomPhysicalAttack` type in backend: name, description, damageDice, attackBonus, damageType, range, properties (owner-scoped)
+- `CharacterPhysicalAttack` type: characterId, name, description, damageDice, attackBonus, damageType, range, properties, timesUsed
+- Full CRUD backend functions for custom physical attacks (owner-scoped)
+- Full CRUD backend functions for character physical attacks (character-scoped)
+- "Physical Attacks" tab in Settings for managing the global library
+- "Physical Attacks" tab in Character Sheet for per-character tracking with add-from-library
 
 ### Modify
-- Nothing existing needs to change
+- Settings page: add Physical Attacks library tab
+- Character sheet: add Physical Attacks tab
+- Types file: add new types for physical attacks
 
 ### Remove
 - Nothing
 
 ## Implementation Plan
-1. Add CustomAbility and CharacterAbility types to backend
-2. Add CRUD functions for both types
-3. Regenerate backend.d.ts bindings
-4. Add Abilities tab to character sheet UI
-5. Add Custom Abilities section to Settings page
+1. Add CustomPhysicalAttack and CharacterPhysicalAttack types + CRUD to backend
+2. Update frontend types (DndBackend interface)
+3. Add Physical Attacks tab to Settings (library CRUD)
+4. Add Physical Attacks tab to Character Sheet (add from library, track usage)

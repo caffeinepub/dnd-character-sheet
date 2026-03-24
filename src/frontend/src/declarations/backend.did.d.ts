@@ -55,6 +55,18 @@ export interface CharacterAbility {
 }
 export type CharacterAbilityId = bigint;
 export type CharacterId = bigint;
+export interface CharacterPhysicalAttack {
+  'name' : string,
+  'attackBonus' : bigint,
+  'description' : string,
+  'properties' : string,
+  'timesUsed' : bigint,
+  'damageDice' : string,
+  'damageType' : string,
+  'characterId' : CharacterId,
+  'range' : string,
+}
+export type CharacterPhysicalAttackId = bigint;
 export type ClassId = bigint;
 export interface CustomAbility {
   'owner' : Principal,
@@ -82,6 +94,17 @@ export interface CustomItem {
   'rarity' : string,
 }
 export type CustomItemId = bigint;
+export interface CustomPhysicalAttack {
+  'owner' : Principal,
+  'name' : string,
+  'attackBonus' : bigint,
+  'description' : string,
+  'properties' : string,
+  'damageDice' : string,
+  'damageType' : string,
+  'range' : string,
+}
+export type CustomPhysicalAttackId = bigint;
 export interface CustomRace {
   'abilityBonuses' : Abilities,
   'traits' : Array<Trait>,
@@ -161,9 +184,17 @@ export type UserRole = { 'admin' : null } |
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addCharacterAbility' : ActorMethod<[CharacterAbility], CharacterAbilityId>,
+  'addCharacterPhysicalAttack' : ActorMethod<
+    [CharacterPhysicalAttack],
+    CharacterPhysicalAttackId
+  >,
   'addClass' : ActorMethod<[CustomClass], ClassId>,
   'addCustomAbility' : ActorMethod<[CustomAbility], CustomAbilityId>,
   'addCustomItem' : ActorMethod<[CustomItem], CustomItemId>,
+  'addCustomPhysicalAttack' : ActorMethod<
+    [CustomPhysicalAttack],
+    CustomPhysicalAttackId
+  >,
   'addCustomSpell' : ActorMethod<[CustomSpell], CustomSpellId>,
   'addItem' : ActorMethod<[InventoryItem], InventoryItemId>,
   'addRace' : ActorMethod<[CustomRace], RaceId>,
@@ -173,9 +204,17 @@ export interface _SERVICE {
   'createCharacter' : ActorMethod<[Character], CharacterId>,
   'deleteCharacter' : ActorMethod<[CharacterId], undefined>,
   'deleteCharacterAbility' : ActorMethod<[CharacterAbilityId], undefined>,
+  'deleteCharacterPhysicalAttack' : ActorMethod<
+    [CharacterPhysicalAttackId],
+    undefined
+  >,
   'deleteClass' : ActorMethod<[ClassId], undefined>,
   'deleteCustomAbility' : ActorMethod<[CustomAbilityId], undefined>,
   'deleteCustomItem' : ActorMethod<[CustomItemId], undefined>,
+  'deleteCustomPhysicalAttack' : ActorMethod<
+    [CustomPhysicalAttackId],
+    undefined
+  >,
   'deleteCustomSpell' : ActorMethod<[CustomSpellId], undefined>,
   'deleteItem' : ActorMethod<[InventoryItemId], undefined>,
   'deleteRace' : ActorMethod<[RaceId], undefined>,
@@ -193,6 +232,10 @@ export interface _SERVICE {
     Array<[CustomAbilityId, CustomAbility]>
   >,
   'getAllCustomItems' : ActorMethod<[], Array<[CustomItemId, CustomItem]>>,
+  'getAllCustomPhysicalAttacks' : ActorMethod<
+    [],
+    Array<[CustomPhysicalAttackId, CustomPhysicalAttack]>
+  >,
   'getAllCustomSpells' : ActorMethod<[], Array<[CustomSpellId, CustomSpell]>>,
   'getAllRaces' : ActorMethod<[], Array<[RaceId, CustomRace]>>,
   'getAllUserProfiles' : ActorMethod<[], Array<[Principal, UserProfile]>>,
@@ -202,6 +245,10 @@ export interface _SERVICE {
   'getItemsByCharacter' : ActorMethod<
     [CharacterId],
     Array<[InventoryItemId, InventoryItem]>
+  >,
+  'getPhysicalAttacksByCharacter' : ActorMethod<
+    [CharacterId],
+    Array<[CharacterPhysicalAttackId, CharacterPhysicalAttack]>
   >,
   'getSettings' : ActorMethod<[], Settings>,
   'getSpellsByCharacter' : ActorMethod<[CharacterId], Array<[SpellId, Spell]>>,
@@ -214,12 +261,20 @@ export interface _SERVICE {
     [CharacterAbilityId, CharacterAbility],
     undefined
   >,
+  'updateCharacterPhysicalAttack' : ActorMethod<
+    [CharacterPhysicalAttackId, CharacterPhysicalAttack],
+    undefined
+  >,
   'updateClass' : ActorMethod<[ClassId, CustomClass], undefined>,
   'updateCustomAbility' : ActorMethod<
     [CustomAbilityId, CustomAbility],
     undefined
   >,
   'updateCustomItem' : ActorMethod<[CustomItemId, CustomItem], undefined>,
+  'updateCustomPhysicalAttack' : ActorMethod<
+    [CustomPhysicalAttackId, CustomPhysicalAttack],
+    undefined
+  >,
   'updateCustomSpell' : ActorMethod<[CustomSpellId, CustomSpell], undefined>,
   'updateItem' : ActorMethod<[InventoryItemId, InventoryItem], undefined>,
   'updateRace' : ActorMethod<[RaceId, CustomRace], undefined>,
