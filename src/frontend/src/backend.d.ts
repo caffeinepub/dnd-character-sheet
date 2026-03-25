@@ -20,6 +20,10 @@ export interface CustomPhysicalAttack {
     damageType: string;
     range: string;
 }
+export interface CustomSpellSchool {
+    owner: Principal;
+    name: string;
+}
 export type CharacterPhysicalAttackId = bigint;
 export interface Character {
     ac: bigint;
@@ -168,6 +172,7 @@ export interface Settings {
 export type SpellId = bigint;
 export type CustomSpellId = bigint;
 export type CustomPhysicalAttackId = bigint;
+export type CustomSpellSchoolId = bigint;
 export interface CustomRace {
     abilityBonuses: Abilities;
     traits: Array<Trait>;
@@ -186,6 +191,10 @@ export enum UserRole {
 }
 export interface backendInterface {
     addCharacterAbility(ability: CharacterAbility): Promise<CharacterAbilityId>;
+    addCustomSpellSchool(school: CustomSpellSchool): Promise<CustomSpellSchoolId>;
+    getAllCustomSpellSchools(): Promise<Array<[CustomSpellSchoolId, CustomSpellSchool]>>;
+    updateCustomSpellSchool(id: CustomSpellSchoolId, school: CustomSpellSchool): Promise<void>;
+    deleteCustomSpellSchool(id: CustomSpellSchoolId): Promise<void>;
     addCharacterPhysicalAttack(attack: CharacterPhysicalAttack): Promise<CharacterPhysicalAttackId>;
     addClass(cls: CustomClass): Promise<ClassId>;
     addCustomAbility(ability: CustomAbility): Promise<CustomAbilityId>;

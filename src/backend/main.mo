@@ -24,6 +24,7 @@ actor {
   public type CharacterAbilityId = Nat;
   public type CustomPhysicalAttackId = Nat;
   public type CharacterPhysicalAttackId = Nat;
+  public type CustomSpellSchoolId = Nat;
 
   public type Character = {
     name : Text;
@@ -151,6 +152,11 @@ actor {
     owner : Principal;
   };
 
+  public type CustomSpellSchool = {
+    name : Text;
+    owner : Principal;
+  };
+
   public type Settings = {
     maxLevel : Nat;
   };
@@ -235,6 +241,8 @@ actor {
   let characterAbilities = Map.empty<CharacterAbilityId, CharacterAbility>();
   let customPhysicalAttacks = Map.empty<CustomPhysicalAttackId, CustomPhysicalAttack>();
   let characterPhysicalAttacks = Map.empty<CharacterPhysicalAttackId, CharacterPhysicalAttack>();
+  var nextCustomSpellSchoolId = 1;
+  let customSpellSchools = Map.empty<CustomSpellSchoolId, CustomSpellSchool>();
 
   // Helper: verify caller is authenticated (not anonymous)
   private func requireAuth(caller : Principal) {
@@ -893,6 +901,50 @@ actor {
           Runtime.trap("Unauthorized: Cannot delete attacks you do not own");
         };
         characterPhysicalAttacks.remove(id);
+      };
+    };
+  };
+
+  // Custom Spell Schools (user CRUD, owner-scoped)
+  public shared ({ caller }) func addCustomSpellSchool(school : CustomSpellSchool) : async CustomSpellSchoolId {
+    requireAuth(caller);
+    let id = nextCustomSpellSchoolId;
+    nextCustomSpellSchoolId += 1;
+    customSpellSchools.add(id, { school with owner = caller });
+    id;
+  };
+
+  public query ({ caller }) func getAllCustomSpellSchools() : async [(CustomSpellSchoolId, CustomSpellSchool)] {
+    requireAuth(caller);
+    let resultList = List.empty<(CustomSpellSchoolId, CustomSpellSchool)>();
+    for ((id, school) in customSpellSchools.entries()) {
+      if (Principal.equal(school.owner, caller)) { resultList.add((id, school)) };
+    };
+    resultList.toArray();
+  };
+
+  public shared ({ caller }) func updateCustomSpellSchool(id : CustomSpellSchoolId, school : CustomSpellSchool) : async () {
+    requireAuth(caller);
+    switch (customSpellSchools.get(id)) {
+      case (null) { Runtime.trap("Custom spell school not found") };
+      case (?existing) {
+        if (not Principal.equal(existing.owner, caller)) {
+          Runtime.trap("Unauthorized: Cannot edit schools you do not own");
+        };
+        customSpellSchools.add(id, { school with owner = existing.owner });
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteCustomSpellSchool(id : CustomSpellSchoolId) : async () {
+    requireAuth(caller);
+    switch (customSpellSchools.get(id)) {
+      case (null) { Runtime.trap("Custom spell school not found") };
+      case (?existing) {
+        if (not Principal.equal(existing.owner, caller)) {
+          Runtime.trap("Unauthorized: Cannot delete schools you do not own");
+        };
+        customSpellSchools.remove(id);
       };
     };
   };

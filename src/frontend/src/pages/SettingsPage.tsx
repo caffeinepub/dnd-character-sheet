@@ -9,6 +9,8 @@ import type {
   CustomPhysicalAttack,
   CustomRace,
   CustomSpell,
+  CustomSpellSchool,
+  CustomSpellSchoolId,
   DndBackend,
   Trait,
 } from "../types";
@@ -24,6 +26,7 @@ type SpellWithId = { id: bigint } & CustomSpell;
 type ItemWithId = { id: bigint } & CustomItem;
 type AbilityWithId = { id: bigint } & CustomAbility;
 type AttackWithId = { id: bigint } & CustomPhysicalAttack;
+type SchoolWithId = { id: bigint } & CustomSpellSchool;
 
 // Form state uses simple primitives for editing; we convert on save
 interface RaceFormState {
@@ -144,6 +147,8 @@ const EMPTY_ATTACK = {
   properties: "",
 };
 
+const EMPTY_SCHOOL = { name: "" };
+
 type Section =
   | "general"
   | "races"
@@ -151,7 +156,8 @@ type Section =
   | "spells"
   | "items"
   | "abilities"
-  | "attacks";
+  | "attacks"
+  | "schools";
 
 // Helpers: convert between form state and backend types
 function abilitiesToForm(ab: Abilities) {
@@ -229,6 +235,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
   const [customItems, setCustomItems] = useState<ItemWithId[]>([]);
   const [customAbilities, setCustomAbilities] = useState<AbilityWithId[]>([]);
   const [customAttacks, setCustomAttacks] = useState<AttackWithId[]>([]);
+  const [customSchools, setCustomSchools] = useState<SchoolWithId[]>([]);
   const [loading, setLoading] = useState(true);
   const [section, setSection] = useState<Section>("general");
 
@@ -272,6 +279,12 @@ export default function SettingsPage({ actor, onBack }: Props) {
   const [attackForm, setAttackForm] = useState({ ...EMPTY_ATTACK });
   const [savingAttack, setSavingAttack] = useState(false);
 
+  // School form
+  const [showSchoolForm, setShowSchoolForm] = useState(false);
+  const [editingSchool, setEditingSchool] = useState<SchoolWithId | null>(null);
+  const [schoolForm, setSchoolForm] = useState({ ...EMPTY_SCHOOL });
+  const [savingSchool, setSavingSchool] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -283,6 +296,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
         itemData,
         abilityData,
         attackData,
+        schoolData,
       ] = await Promise.all([
         actor.getSettings(),
         actor.getAllRaces() as unknown as Promise<[bigint, CustomRace][]>,
@@ -297,6 +311,9 @@ export default function SettingsPage({ actor, onBack }: Props) {
         actor.getAllCustomPhysicalAttacks() as unknown as Promise<
           [bigint, CustomPhysicalAttack][]
         >,
+        actor.getAllCustomSpellSchools() as unknown as Promise<
+          [bigint, CustomSpellSchool][]
+        >,
       ]);
       setMaxLevel(Number(settings.maxLevel));
       setSavedMaxLevel(Number(settings.maxLevel));
@@ -306,6 +323,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
       setCustomItems(itemData.map(([id, i]) => ({ id, ...i })));
       setCustomAbilities(abilityData.map(([id, a]) => ({ id, ...a })));
       setCustomAttacks(attackData.map(([id, a]) => ({ id, ...a })));
+      setCustomSchools(schoolData.map(([id, s]) => ({ id, ...s })));
     } catch (err) {
       console.error("Failed to load settings data:", err);
     } finally {
@@ -661,6 +679,49 @@ export default function SettingsPage({ actor, onBack }: Props) {
     }
   };
 
+  // Custom School CRUD
+  const openNewSchool = () => {
+    setEditingSchool(null);
+    setSchoolForm({ ...EMPTY_SCHOOL });
+    setShowSchoolForm(true);
+  };
+  const openEditSchool = (s: SchoolWithId) => {
+    setEditingSchool(s);
+    setSchoolForm({ name: s.name });
+    setShowSchoolForm(true);
+  };
+  const saveSchool = async () => {
+    setSavingSchool(true);
+    try {
+      const school: CustomSpellSchool = {
+        name: schoolForm.name,
+        owner: identity!.getPrincipal(),
+      };
+      if (editingSchool)
+        await actor.updateCustomSpellSchool(editingSchool.id, school);
+      else await actor.addCustomSpellSchool(school);
+      setShowSchoolForm(false);
+      await load();
+    } catch (err) {
+      alert(`Failed to save school: ${String(err)}`);
+    } finally {
+      setSavingSchool(false);
+    }
+  };
+  const deleteSchool = async (id: bigint) => {
+    if (!confirm("Delete this custom school?")) return;
+    try {
+      await actor.deleteCustomSpellSchool(id);
+    } catch (err) {
+      console.error("Failed to delete:", err);
+    }
+    try {
+      await load();
+    } catch (err) {
+      console.error("Failed to reload:", err);
+    }
+  };
+
   const tabs: { id: Section; label: string }[] = [
     { id: "general", label: "General" },
     { id: "races", label: `Custom Races (${races.length})` },
@@ -669,6 +730,7 @@ export default function SettingsPage({ actor, onBack }: Props) {
     { id: "items", label: `Custom Items (${customItems.length})` },
     { id: "abilities", label: `Custom Abilities (${customAbilities.length})` },
     { id: "attacks", label: `Custom Attacks (${customAttacks.length})` },
+    { id: "schools", label: `Custom Schools (${customSchools.length})` },
   ];
 
   const tabStyle = (id: Section) => ({
@@ -1889,11 +1951,13 @@ export default function SettingsPage({ actor, onBack }: Props) {
                   setSpellForm((p) => ({ ...p, school: e.target.value }))
                 }
               >
-                {SPELL_SCHOOLS.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
+                {[...SPELL_SCHOOLS, ...customSchools.map((cs) => cs.name)].map(
+                  (s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ),
+                )}
               </select>
             </Field>
             <Field label="Casting Time">
@@ -2276,6 +2340,113 @@ export default function SettingsPage({ actor, onBack }: Props) {
             saving={savingAttack}
             disabled={!attackForm.name.trim()}
             label={editingAttack ? "Save Changes" : "Add Attack"}
+          />
+        </Modal>
+      )}
+
+      {section === "schools" && (
+        <div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 16,
+            }}
+          >
+            <p style={{ color: "var(--ds-muted)", fontSize: 14 }}>
+              Define custom spell schools. These appear alongside standard
+              schools when creating spells.
+            </p>
+            <button
+              type="button"
+              className="ds-btn-primary"
+              onClick={openNewSchool}
+              style={{ fontFamily: "Cinzel, serif", fontSize: 13 }}
+              data-ocid="schools.primary_button"
+            >
+              + Add School
+            </button>
+          </div>
+          {customSchools.length === 0 ? (
+            <p
+              style={{
+                color: "var(--ds-muted)",
+                textAlign: "center",
+                marginTop: 32,
+              }}
+              data-ocid="schools.empty_state"
+            >
+              No custom schools yet. Create your homebrew spell schools here!
+            </p>
+          ) : (
+            customSchools.map((school, i) => (
+              <div
+                key={school.id.toString()}
+                className="ds-card2"
+                style={{ padding: 14, marginBottom: 8 }}
+                data-ocid={`schools.item.${i + 1}`}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span style={{ color: "var(--ds-text)", fontWeight: 600 }}>
+                    {school.name}
+                  </span>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      type="button"
+                      className="ds-btn-ghost"
+                      style={{ fontSize: 12 }}
+                      onClick={() => openEditSchool(school)}
+                      data-ocid={`schools.edit_button.${i + 1}`}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="ds-btn-ghost"
+                      style={{ fontSize: 12, color: "#c0392b" }}
+                      onClick={() => deleteSchool(school.id)}
+                      data-ocid={`schools.delete_button.${i + 1}`}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Custom School Form Modal */}
+      {showSchoolForm && (
+        <Modal
+          onClose={() => setShowSchoolForm(false)}
+          title={editingSchool ? "Edit Custom School" : "New Custom School"}
+        >
+          <Field label="School Name *">
+            <input
+              className="ds-input"
+              value={schoolForm.name}
+              onChange={(e) =>
+                setSchoolForm((p) => ({ ...p, name: e.target.value }))
+              }
+              placeholder="e.g. Chronomancy, Blood Magic"
+              data-ocid="schools.input"
+            />
+          </Field>
+          <ModalFooter
+            onClose={() => setShowSchoolForm(false)}
+            onSave={saveSchool}
+            saving={savingSchool}
+            disabled={!schoolForm.name.trim()}
+            label={editingSchool ? "Save Changes" : "Add School"}
           />
         </Modal>
       )}

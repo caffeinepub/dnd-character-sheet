@@ -1,32 +1,26 @@
-# DungeonScribe - Physical Attacks Feature
+# DungeonScribe
 
 ## Current State
-The app has:
-- Custom Abilities system (global library + per-character tracking)
-- Settings page with CRUD for Custom Spells, Items, Abilities, Races, Classes
-- Character sheet with tabs: Stats, Spells, Inventory, Features, Notes, Items, Abilities
-- Backend with owner-scoped custom content
+The app has a custom spell library in Settings (Custom Spells tab) where users can create spells with a school field. The school field in both the spell form (Settings) and SpellsTab currently uses a hardcoded list of 8 standard D&D schools (Abjuration, Conjuration, etc.).
 
 ## Requested Changes (Diff)
 
 ### Add
-- `CustomPhysicalAttack` type in backend: name, description, damageDice, attackBonus, damageType, range, properties (owner-scoped)
-- `CharacterPhysicalAttack` type: characterId, name, description, damageDice, attackBonus, damageType, range, properties, timesUsed
-- Full CRUD backend functions for custom physical attacks (owner-scoped)
-- Full CRUD backend functions for character physical attacks (character-scoped)
-- "Physical Attacks" tab in Settings for managing the global library
-- "Physical Attacks" tab in Character Sheet for per-character tracking with add-from-library
+- `CustomSpellSchool` type in backend: `{ name: Text; owner: Principal }`
+- Full owner-scoped CRUD for custom spell schools: `addCustomSpellSchool`, `getAllCustomSpellSchools`, `updateCustomSpellSchool`, `deleteCustomSpellSchool`
+- New "Custom Schools" tab in Settings page (alongside Custom Spells, Items, etc.)
+- School form: just a name field, same pattern as other custom libraries
 
 ### Modify
-- Settings page: add Physical Attacks library tab
-- Character sheet: add Physical Attacks tab
-- Types file: add new types for physical attacks
+- School dropdown in the spell form (both in SettingsPage and SpellsTab) to load and combine standard D&D schools + user's custom schools
+- `load()` in SettingsPage to also fetch custom schools
 
 ### Remove
-- Nothing
+- Nothing removed
 
 ## Implementation Plan
-1. Add CustomPhysicalAttack and CharacterPhysicalAttack types + CRUD to backend
-2. Update frontend types (DndBackend interface)
-3. Add Physical Attacks tab to Settings (library CRUD)
-4. Add Physical Attacks tab to Character Sheet (add from library, track usage)
+1. Add `CustomSpellSchool` type and CRUD to `src/backend/main.mo`
+2. Update `src/frontend/src/backend.d.ts` with new types and methods
+3. Update `src/frontend/src/types.ts` with `CustomSpellSchool` type
+4. Update `SettingsPage.tsx`: add `schools` section, state, CRUD handlers, and pass combined schools to spell form
+5. Update `SpellsTab.tsx`: fetch custom schools and combine with standard schools for the spell form dropdown

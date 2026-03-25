@@ -12,6 +12,7 @@ export type CustomAbilityId = bigint;
 export type CharacterAbilityId = bigint;
 export type CustomPhysicalAttackId = bigint;
 export type CharacterPhysicalAttackId = bigint;
+export type CustomSpellSchoolId = bigint;
 
 export interface Abilities {
   str: bigint;
@@ -185,6 +186,11 @@ export interface CharacterPhysicalAttack {
   timesUsed: bigint;
 }
 
+export interface CustomSpellSchool {
+  name: string;
+  owner: Principal;
+}
+
 export interface UserProfile {
   name: string;
 }
@@ -199,6 +205,15 @@ export interface DndBackend {
   addCustomItem(item: CustomItem): Promise<CustomItemId>;
   addCustomAbility(ability: CustomAbility): Promise<CustomAbilityId>;
   addCharacterAbility(ability: CharacterAbility): Promise<CharacterAbilityId>;
+  addCustomSpellSchool(school: CustomSpellSchool): Promise<CustomSpellSchoolId>;
+  getAllCustomSpellSchools(): Promise<
+    Array<[CustomSpellSchoolId, CustomSpellSchool]>
+  >;
+  updateCustomSpellSchool(
+    id: CustomSpellSchoolId,
+    school: CustomSpellSchool,
+  ): Promise<void>;
+  deleteCustomSpellSchool(id: CustomSpellSchoolId): Promise<void>;
   addCustomPhysicalAttack(
     attack: CustomPhysicalAttack,
   ): Promise<CustomPhysicalAttackId>;

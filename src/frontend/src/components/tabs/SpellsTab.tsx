@@ -1,6 +1,12 @@
 import type { Principal } from "@icp-sdk/core/principal";
 import { useCallback, useEffect, useState } from "react";
-import type { Character, CustomSpell, DndBackend, Spell } from "../../types";
+import type {
+  Character,
+  CustomSpell,
+  CustomSpellSchool,
+  DndBackend,
+  Spell,
+} from "../../types";
 
 interface Props {
   actor: DndBackend;
@@ -58,13 +64,20 @@ export default function SpellsTab({
   const [libraryLoading, setLibraryLoading] = useState(false);
   const [librarySearch, setLibrarySearch] = useState("");
   const [addingFromLib, setAddingFromLib] = useState<bigint | null>(null);
+  const [customSchools, setCustomSchools] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const result = (await actor.getSpellsByCharacter(
-      characterId,
-    )) as unknown as [bigint, Spell][];
+    const [result, schoolData] = await Promise.all([
+      actor.getSpellsByCharacter(characterId) as unknown as Promise<
+        [bigint, Spell][]
+      >,
+      actor.getAllCustomSpellSchools() as unknown as Promise<
+        [bigint, CustomSpellSchool][]
+      >,
+    ]);
     setSpells(result.map(([id, spell]) => ({ id, ...spell })));
+    setCustomSchools(schoolData.map(([, s]) => s.name));
     setLoading(false);
   }, [actor, characterId]);
 
@@ -517,7 +530,7 @@ export default function SpellsTab({
       {showForm && (
         <SpellFormDialog
           form={form}
-          schools={SCHOOLS}
+          schools={[...SCHOOLS, ...customSchools]}
           onField={f}
           onSave={handleSave}
           onClose={() => setShowForm(false)}
