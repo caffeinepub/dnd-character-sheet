@@ -82,11 +82,16 @@ export default function AttacksTab({ actor, characterId }: Props) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const result = (await actor.getPhysicalAttacksByCharacter(
-      characterId,
-    )) as unknown as [bigint, CharacterPhysicalAttack][];
-    setAttacks(result.map(([id, a]) => ({ id, ...a })));
-    setLoading(false);
+    try {
+      const result = (await actor.getPhysicalAttacksByCharacter(
+        characterId,
+      )) as unknown as [bigint, CharacterPhysicalAttack][];
+      setAttacks(result.map(([id, a]) => ({ id, ...a })));
+    } catch (err) {
+      console.error("Failed to load attacks:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [actor, characterId]);
 
   useEffect(() => {
@@ -120,9 +125,9 @@ export default function AttacksTab({ actor, characterId }: Props) {
         timesUsed: 0n,
       };
       await actor.addCharacterPhysicalAttack(attack);
-      await load();
-      setAddingFromLib(null);
       setShowLibrary(false);
+      setAddingFromLib(null);
+      await load();
     } catch (err) {
       setAddingFromLib(null);
       alert(`Failed to add attack: ${String(err)}`);
@@ -167,8 +172,8 @@ export default function AttacksTab({ actor, characterId }: Props) {
       if (editing)
         await actor.updateCharacterPhysicalAttack(editing.id, attack);
       else await actor.addCharacterPhysicalAttack(attack);
-      await load();
       setShowForm(false);
+      await load();
     } catch (err) {
       alert(`Failed to save attack: ${String(err)}`);
     } finally {
@@ -178,8 +183,16 @@ export default function AttacksTab({ actor, characterId }: Props) {
 
   const handleDelete = async (id: bigint) => {
     if (!confirm("Delete this attack?")) return;
-    await actor.deleteCharacterPhysicalAttack(id);
-    await load();
+    try {
+      await actor.deleteCharacterPhysicalAttack(id);
+    } catch (err) {
+      console.error(err);
+    }
+    try {
+      await load();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleUse = async (a: AttackWithId) => {

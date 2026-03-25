@@ -1,5 +1,6 @@
 import type { Principal } from "@icp-sdk/core/principal";
 import { useCallback, useEffect, useState } from "react";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import type {
   Abilities,
   CustomAbility,
@@ -218,6 +219,7 @@ function formatAbilityBonuses(ab: Abilities): string {
 }
 
 export default function SettingsPage({ actor, onBack }: Props) {
+  const { identity } = useInternetIdentity();
   const [maxLevel, setMaxLevel] = useState(20);
   const [savedMaxLevel, setSavedMaxLevel] = useState(20);
   const [savingLevel, setSavingLevel] = useState(false);
@@ -272,36 +274,43 @@ export default function SettingsPage({ actor, onBack }: Props) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [
-      settings,
-      raceData,
-      classData,
-      spellData,
-      itemData,
-      abilityData,
-      attackData,
-    ] = await Promise.all([
-      actor.getSettings(),
-      actor.getAllRaces() as unknown as Promise<[bigint, CustomRace][]>,
-      actor.getAllClasses() as unknown as Promise<[bigint, CustomClass][]>,
-      actor.getAllCustomSpells() as unknown as Promise<[bigint, CustomSpell][]>,
-      actor.getAllCustomItems() as unknown as Promise<[bigint, CustomItem][]>,
-      actor.getAllCustomAbilities() as unknown as Promise<
-        [bigint, CustomAbility][]
-      >,
-      actor.getAllCustomPhysicalAttacks() as unknown as Promise<
-        [bigint, CustomPhysicalAttack][]
-      >,
-    ]);
-    setMaxLevel(Number(settings.maxLevel));
-    setSavedMaxLevel(Number(settings.maxLevel));
-    setRaces(raceData.map(([id, r]) => ({ id, ...r })));
-    setClasses(classData.map(([id, c]) => ({ id, ...c })));
-    setCustomSpells(spellData.map(([id, s]) => ({ id, ...s })));
-    setCustomItems(itemData.map(([id, i]) => ({ id, ...i })));
-    setCustomAbilities(abilityData.map(([id, a]) => ({ id, ...a })));
-    setCustomAttacks(attackData.map(([id, a]) => ({ id, ...a })));
-    setLoading(false);
+    try {
+      const [
+        settings,
+        raceData,
+        classData,
+        spellData,
+        itemData,
+        abilityData,
+        attackData,
+      ] = await Promise.all([
+        actor.getSettings(),
+        actor.getAllRaces() as unknown as Promise<[bigint, CustomRace][]>,
+        actor.getAllClasses() as unknown as Promise<[bigint, CustomClass][]>,
+        actor.getAllCustomSpells() as unknown as Promise<
+          [bigint, CustomSpell][]
+        >,
+        actor.getAllCustomItems() as unknown as Promise<[bigint, CustomItem][]>,
+        actor.getAllCustomAbilities() as unknown as Promise<
+          [bigint, CustomAbility][]
+        >,
+        actor.getAllCustomPhysicalAttacks() as unknown as Promise<
+          [bigint, CustomPhysicalAttack][]
+        >,
+      ]);
+      setMaxLevel(Number(settings.maxLevel));
+      setSavedMaxLevel(Number(settings.maxLevel));
+      setRaces(raceData.map(([id, r]) => ({ id, ...r })));
+      setClasses(classData.map(([id, c]) => ({ id, ...c })));
+      setCustomSpells(spellData.map(([id, s]) => ({ id, ...s })));
+      setCustomItems(itemData.map(([id, i]) => ({ id, ...i })));
+      setCustomAbilities(abilityData.map(([id, a]) => ({ id, ...a })));
+      setCustomAttacks(attackData.map(([id, a]) => ({ id, ...a })));
+    } catch (err) {
+      console.error("Failed to load settings data:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [actor]);
 
   useEffect(() => {
@@ -310,9 +319,15 @@ export default function SettingsPage({ actor, onBack }: Props) {
 
   const saveMaxLevel = async () => {
     setSavingLevel(true);
-    await actor.updateSettings({ maxLevel: BigInt(maxLevel) });
-    setSavedMaxLevel(maxLevel);
-    setSavingLevel(false);
+    try {
+      await actor.updateSettings({ maxLevel: BigInt(maxLevel) });
+      setSavedMaxLevel(maxLevel);
+    } catch (err) {
+      console.error("Failed to save max level:", err);
+      alert(`Failed to save max level: ${String(err)}`);
+    } finally {
+      setSavingLevel(false);
+    }
   };
 
   // Race CRUD
@@ -344,8 +359,8 @@ export default function SettingsPage({ actor, onBack }: Props) {
       };
       if (editingRace) await actor.updateRace(editingRace.id, race);
       else await actor.addRace(race);
-      await load();
       setShowRaceForm(false);
+      await load();
     } catch (err) {
       alert(`Failed to save race: ${String(err)}`);
     } finally {
@@ -354,8 +369,16 @@ export default function SettingsPage({ actor, onBack }: Props) {
   };
   const deleteRace = async (id: bigint) => {
     if (!confirm("Delete this custom race?")) return;
-    await actor.deleteRace(id);
-    await load();
+    try {
+      await actor.deleteRace(id);
+    } catch (err) {
+      console.error("Failed to delete:", err);
+    }
+    try {
+      await load();
+    } catch (err) {
+      console.error("Failed to reload:", err);
+    }
   };
 
   // Class CRUD
@@ -392,8 +415,8 @@ export default function SettingsPage({ actor, onBack }: Props) {
       };
       if (editingClass) await actor.updateClass(editingClass.id, cls);
       else await actor.addClass(cls);
-      await load();
       setShowClassForm(false);
+      await load();
     } catch (err) {
       alert(`Failed to save class: ${String(err)}`);
     } finally {
@@ -402,8 +425,16 @@ export default function SettingsPage({ actor, onBack }: Props) {
   };
   const deleteClass = async (id: bigint) => {
     if (!confirm("Delete this custom class?")) return;
-    await actor.deleteClass(id);
-    await load();
+    try {
+      await actor.deleteClass(id);
+    } catch (err) {
+      console.error("Failed to delete:", err);
+    }
+    try {
+      await load();
+    } catch (err) {
+      console.error("Failed to reload:", err);
+    }
   };
 
   // Custom Spell CRUD
@@ -440,12 +471,12 @@ export default function SettingsPage({ actor, onBack }: Props) {
         duration: spellForm.duration,
         damageEffect: spellForm.damageEffect,
         description: spellForm.description,
-        owner: {} as unknown as Principal,
+        owner: identity!.getPrincipal(),
       };
       if (editingSpell) await actor.updateCustomSpell(editingSpell.id, spell);
       else await actor.addCustomSpell(spell);
-      await load();
       setShowSpellForm(false);
+      await load();
     } catch (err) {
       alert(`Failed to save spell: ${String(err)}`);
     } finally {
@@ -454,8 +485,16 @@ export default function SettingsPage({ actor, onBack }: Props) {
   };
   const deleteSpell = async (id: bigint) => {
     if (!confirm("Delete this custom spell?")) return;
-    await actor.deleteCustomSpell(id);
-    await load();
+    try {
+      await actor.deleteCustomSpell(id);
+    } catch (err) {
+      console.error("Failed to delete:", err);
+    }
+    try {
+      await load();
+    } catch (err) {
+      console.error("Failed to reload:", err);
+    }
   };
 
   // Custom Item CRUD
@@ -486,12 +525,12 @@ export default function SettingsPage({ actor, onBack }: Props) {
         value: itemForm.value,
         itemType: itemForm.itemType,
         rarity: itemForm.rarity,
-        owner: {} as unknown as Principal,
+        owner: identity!.getPrincipal(),
       };
       if (editingItem) await actor.updateCustomItem(editingItem.id, item);
       else await actor.addCustomItem(item);
-      await load();
       setShowItemForm(false);
+      await load();
     } catch (err) {
       alert(`Failed to save item: ${String(err)}`);
     } finally {
@@ -500,8 +539,16 @@ export default function SettingsPage({ actor, onBack }: Props) {
   };
   const deleteItem = async (id: bigint) => {
     if (!confirm("Delete this custom item?")) return;
-    await actor.deleteCustomItem(id);
-    await load();
+    try {
+      await actor.deleteCustomItem(id);
+    } catch (err) {
+      console.error("Failed to delete:", err);
+    }
+    try {
+      await load();
+    } catch (err) {
+      console.error("Failed to reload:", err);
+    }
   };
 
   // Custom Ability CRUD
@@ -530,13 +577,13 @@ export default function SettingsPage({ actor, onBack }: Props) {
         abilityType: abilityForm.abilityType,
         uses: BigInt(abilityForm.uses),
         rechargeOn: abilityForm.rechargeOn,
-        owner: {} as unknown as Principal,
+        owner: identity!.getPrincipal(),
       };
       if (editingAbility)
         await actor.updateCustomAbility(editingAbility.id, ability);
       else await actor.addCustomAbility(ability);
-      await load();
       setShowAbilityForm(false);
+      await load();
     } catch (err) {
       alert(`Failed to save ability: ${String(err)}`);
     } finally {
@@ -545,8 +592,16 @@ export default function SettingsPage({ actor, onBack }: Props) {
   };
   const deleteAbility = async (id: bigint) => {
     if (!confirm("Delete this custom ability?")) return;
-    await actor.deleteCustomAbility(id);
-    await load();
+    try {
+      await actor.deleteCustomAbility(id);
+    } catch (err) {
+      console.error("Failed to delete:", err);
+    }
+    try {
+      await load();
+    } catch (err) {
+      console.error("Failed to reload:", err);
+    }
   };
 
   // Custom Attack CRUD
@@ -579,13 +634,13 @@ export default function SettingsPage({ actor, onBack }: Props) {
         damageType: attackForm.damageType,
         range: attackForm.range,
         properties: attackForm.properties,
-        owner: {} as unknown as Principal,
+        owner: identity!.getPrincipal(),
       };
       if (editingAttack)
         await actor.updateCustomPhysicalAttack(editingAttack.id, attack);
       else await actor.addCustomPhysicalAttack(attack);
-      await load();
       setShowAttackForm(false);
+      await load();
     } catch (err) {
       alert(`Failed to save attack: ${String(err)}`);
     } finally {
@@ -594,8 +649,16 @@ export default function SettingsPage({ actor, onBack }: Props) {
   };
   const deleteAttack = async (id: bigint) => {
     if (!confirm("Delete this custom attack?")) return;
-    await actor.deleteCustomPhysicalAttack(id);
-    await load();
+    try {
+      await actor.deleteCustomPhysicalAttack(id);
+    } catch (err) {
+      console.error("Failed to delete:", err);
+    }
+    try {
+      await load();
+    } catch (err) {
+      console.error("Failed to reload:", err);
+    }
   };
 
   const tabs: { id: Section; label: string }[] = [

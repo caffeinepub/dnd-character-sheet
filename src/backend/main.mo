@@ -227,6 +227,7 @@ actor {
   let customSpells = Map.empty<CustomSpellId, CustomSpell>();
   let customItems = Map.empty<CustomItemId, CustomItem>();
   var settings : Settings = { maxLevel = 10000 };
+  let userSettings = Map.empty<Principal, Settings>();
   let userProfiles = Map.empty<Principal, UserProfile>();
   let raceOwners = Map.empty<RaceId, Principal>();
   let classOwners = Map.empty<ClassId, Principal>();
@@ -670,12 +671,15 @@ actor {
   // Settings
   public query ({ caller }) func getSettings() : async Settings {
     requireAuth(caller);
-    settings;
+    switch (userSettings.get(caller)) {
+      case (?s) { s };
+      case (null) { { maxLevel = 10000 } };
+    };
   };
 
   public shared ({ caller }) func updateSettings(newSettings : Settings) : async () {
-    requireAdmin(caller);
-    settings := newSettings;
+    requireAuth(caller);
+    userSettings.add(caller, newSettings);
   };
 
   // User Profiles
